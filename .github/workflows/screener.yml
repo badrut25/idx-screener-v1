@@ -1,0 +1,35 @@
+name: Update Stock Data
+
+on:
+  schedule:
+    # Jalan otomatis setiap hari Senin - Jumat jam 10:00 UTC (17:00 WIB)
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch: # Tombol manual untuk testing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Screener Python Script
+        run: |
+          python screener.py
+
+      - name: Commit and Push Data JSON
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/data.json
+          git commit -m "Automated update: new stock data [skip ci]" || echo "No changes to commit"
+          git push origin main
