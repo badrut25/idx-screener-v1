@@ -81,8 +81,8 @@
 
     <script>
         // --- PENGATURAN USERNAME DAN PASSWORD (Ubah di sini) ---
-        const VALID_USERNAME = "admin";
-        const VALID_PASSWORD = "password123";
+        const VALID_USERNAME = "badrut_dci";
+        const VALID_PASSWORD = "badrut123";
         // -------------------------------------------------------
 
         // Cek apakah user sudah login sebelumnya (session tetap ada sampai tab browser ditutup)
@@ -94,8 +94,8 @@
 
         // Fungsi untuk mengecek login
         function checkLogin() {
-            const user = document.getElementById("badrut_dci").value;
-            const pass = document.getElementById("badrut123").value;
+            const user = document.getElementById("username").value;
+            const pass = document.getElementById("password").value;
 
             if (user === VALID_USERNAME && pass === VALID_PASSWORD) {
                 // Login Berhasil
