@@ -8,6 +8,16 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 1200px; margin: auto; }
         h1 { text-align: center; color: #2c3e50; }
+        
+        /* --- STYLING UNTUK HALAMAN LOGIN --- */
+        #login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        #login-container input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        #login-container button { width: 95%; padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        #login-container button:hover { background: #1a252f; }
+        #error-msg { color: #e74c3c; font-size: 14px; margin-top: 10px; display: none; }
+
+        /* --- STYLING DASHBOARD --- */
+        #dashboard-container { display: none; /* Disembunyikan secara default */ }
         .update-time { text-align: center; color: #666; margin-bottom: 30px; font-style: italic; }
         .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 40px; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -17,19 +27,29 @@
         .buy { background-color: #e8f5e9; }
         .buy td { color: #2e7d32; font-weight: bold; }
         h2 { margin-top: 0; color: #34495e; border-bottom: 2px solid #007bff; padding-bottom: 10px; display: inline-block;}
+        .logout-btn { display: block; margin: 0 auto 30px; background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="container">
+
+    <div id="login-container">
+        <h2>🔒 Area Terbatas</h2>
+        <p style="color: #666; font-size: 14px;">Silakan login untuk melihat hasil screener.</p>
+        <input type="text" id="username" placeholder="Username" autocomplete="off">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="checkLogin()">Masuk</button>
+        <div id="error-msg">Username atau Password salah!</div>
+    </div>
+
+    <div id="dashboard-container" class="container">
         <h1>🚀 Dashboard Screener Saham IDX</h1>
+        <button class="logout-btn" onclick="logout()">Keluar (Logout)</button>
         <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
 
         <div class="table-wrapper">
             <h2>🏆 Super Screener</h2>
             <table id="superTable">
-                <thead>
-                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
-                </thead>
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -37,9 +57,7 @@
         <div class="table-wrapper">
             <h2>🎯 Aroon + UT Screener</h2>
             <table id="aroonUtTable">
-                <thead>
-                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
-                </thead>
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -47,9 +65,7 @@
         <div class="table-wrapper">
             <h2>🔥 KO + UT + Volume Screener</h2>
             <table id="koUtVolTable">
-                <thead>
-                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
-                </thead>
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -57,21 +73,60 @@
         <div class="table-wrapper">
             <h2>⚡ Aroon + PSAR Screener</h2>
             <table id="aroonPsarTable">
-                <thead>
-                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr>
-                </thead>
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
-
     </div>
 
     <script>
+        // --- PENGATURAN USERNAME DAN PASSWORD (Ubah di sini) ---
+        const VALID_USERNAME = "admin";
+        const VALID_PASSWORD = "password123";
+        // -------------------------------------------------------
+
+        // Cek apakah user sudah login sebelumnya (session tetap ada sampai tab browser ditutup)
+        window.onload = function() {
+            if (sessionStorage.getItem("isLoggedIn") === "true") {
+                showDashboard();
+            }
+        };
+
+        // Fungsi untuk mengecek login
+        function checkLogin() {
+            const user = document.getElementById("badrut_dci").value;
+            const pass = document.getElementById("badrut123").value;
+
+            if (user === VALID_USERNAME && pass === VALID_PASSWORD) {
+                // Login Berhasil
+                sessionStorage.setItem("isLoggedIn", "true");
+                document.getElementById("error-msg").style.display = "none";
+                showDashboard();
+            } else {
+                // Login Gagal
+                document.getElementById("error-msg").style.display = "block";
+            }
+        }
+
+        // Fungsi untuk Logout
+        function logout() {
+            sessionStorage.removeItem("isLoggedIn");
+            location.reload(); // Refresh halaman agar kembali ke layar login
+        }
+
+        // Fungsi untuk menampilkan dashboard dan memuat data
+        function showDashboard() {
+            document.getElementById("login-container").style.display = "none";
+            document.getElementById("dashboard-container").style.display = "block";
+            
+            // Panggil fungsi untuk mengambil data JSON hanya SETELAH login berhasil
+            loadScreenerData();
+        }
+
         // Fungsi pembantu untuk merender tabel secara dinamis
         function renderTable(dataArray, tableId, isPsar = false) {
             const tbody = document.querySelector(`#${tableId} tbody`);
             
-            // Jika array kosong atau undefined
             if(!dataArray || dataArray.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria hari ini.</td></tr>';
                 return;
@@ -79,19 +134,9 @@
 
             dataArray.forEach(row => {
                 const tr = document.createElement('tr');
-                
-                // Highlight hijau jika polanya terdeteksi bagus
-                if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') {
-                    tr.classList.add('buy');
-                }
+                if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') { tr.classList.add('buy'); }
 
-                // Logika kolom terakhir: Tampilkan UT_Pos atau PSAR_Trend tergantung tabelnya
-                let trendColumn = '';
-                if(isPsar) {
-                    trendColumn = row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear';
-                } else {
-                    trendColumn = row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear';
-                }
+                let trendColumn = isPsar ? (row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear') : (row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear');
 
                 tr.innerHTML = `
                     <td><strong>${row.Ticker}</strong></td>
@@ -106,24 +151,26 @@
             });
         }
 
-        // Mengambil data JSON dan memasukkannya ke masing-masing tabel
-        fetch('data.json')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('last_update').innerText = data.last_update;
-                
-                // Panggil fungsi render untuk masing-masing tabel sesuai key di JSON
-                renderTable(data.super_screener, 'superTable');
-                renderTable(data.aroon_ut, 'aroonUtTable');
-                renderTable(data.ko_ut_vol, 'koUtVolTable');
-                
-                // Parameter ketiga (true) memberitahu fungsi untuk mencetak Trend PSAR, bukan Trend UT
-                renderTable(data.aroon_psar, 'aroonPsarTable', true); 
-            })
-            .catch(error => {
-                document.getElementById('last_update').innerText = "Gagal memuat data. Sistem mungkin sedang update.";
-                console.error("Error fetching data:", error);
-            });
+        // Fungsi Utama untuk Load Data JSON
+        function loadScreenerData() {
+            fetch('data.json')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('last_update').innerText = data.last_update;
+                    renderTable(data.super_screener, 'superTable');
+                    renderTable(data.aroon_ut, 'aroonUtTable');
+                    renderTable(data.ko_ut_vol, 'koUtVolTable');
+                    renderTable(data.aroon_psar, 'aroonPsarTable', true); 
+                })
+                .catch(error => {
+                    document.getElementById('last_update').innerText = "Gagal memuat data. Sistem mungkin sedang update.";
+                });
+        }
+
+        // Menambahkan fitur tekan tombol "Enter" pada keyboard untuk login
+        document.getElementById("password").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") { event.preventDefault(); checkLogin(); }
+        });
     </script>
 </body>
 </html>
