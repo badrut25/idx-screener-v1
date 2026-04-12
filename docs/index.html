@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDX OOP Screener</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: auto; }
+        h1 { text-align: center; color: #2c3e50; }
+        .update-time { text-align: center; color: #666; margin-bottom: 30px; font-style: italic; }
+        .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 40px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #007bff; color: white; font-weight: 600; }
+        tr:hover { background-color: #f1f1f1; }
+        .buy { background-color: #e8f5e9; }
+        .buy td { color: #2e7d32; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Super Screener Saham IDX</h1>
+        <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
+
+        <div class="table-wrapper">
+            <h2>🏆 Hasil: Super Screener</h2>
+            <table id="superTable">
+                <thead>
+                    <tr>
+                        <th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        fetch('data.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('last_update').innerText = data.last_update;
+                
+                const tbody = document.querySelector('#superTable tbody');
+                
+                if(data.super_screener.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada saham yang masuk kriteria hari ini.</td></tr>';
+                    return;
+                }
+
+                data.super_screener.forEach(row => {
+                    const tr = document.createElement('tr');
+                    // Highlight hijau jika polanya bagus
+                    if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') {
+                        tr.classList.add('buy');
+                    }
+                    tr.innerHTML = `
+                        <td><strong>${row.Ticker}</strong></td>
+                        <td>${row.Signal_Date}</td>
+                        <td>${row.Pattern_Label}</td>
+                        <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
+                        <td>${row.Pct_Change_Price}%</td>
+                        <td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td>
+                        <td>${row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(error => {
+                document.getElementById('last_update').innerText = "Gagal memuat data. Sistem mungkin sedang update.";
+            });
+    </script>
+</body>
+</html>
