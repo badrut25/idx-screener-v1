@@ -10,65 +10,119 @@
         h1 { text-align: center; color: #2c3e50; }
         .update-time { text-align: center; color: #666; margin-bottom: 30px; font-style: italic; }
         .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 40px; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #007bff; color: white; font-weight: 600; }
+        th { background-color: #007bff; color: white; font-weight: 600; white-space: nowrap; }
         tr:hover { background-color: #f1f1f1; }
         .buy { background-color: #e8f5e9; }
         .buy td { color: #2e7d32; font-weight: bold; }
+        h2 { margin-top: 0; color: #34495e; border-bottom: 2px solid #007bff; padding-bottom: 10px; display: inline-block;}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Super Screener Saham IDX</h1>
+        <h1>🚀 Dashboard Screener Saham IDX</h1>
         <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
 
         <div class="table-wrapper">
-            <h2>🏆 Hasil: Super Screener</h2>
+            <h2>🏆 Super Screener</h2>
             <table id="superTable">
                 <thead>
-                    <tr>
-                        <th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th>
-                    </tr>
+                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
+
+        <div class="table-wrapper">
+            <h2>🎯 Aroon + UT Screener</h2>
+            <table id="aroonUtTable">
+                <thead>
+                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>🔥 KO + UT + Volume Screener</h2>
+            <table id="koUtVolTable">
+                <thead>
+                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>⚡ Aroon + PSAR Screener</h2>
+            <table id="aroonPsarTable">
+                <thead>
+                    <tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
     </div>
 
     <script>
+        // Fungsi pembantu untuk merender tabel secara dinamis
+        function renderTable(dataArray, tableId, isPsar = false) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            
+            // Jika array kosong atau undefined
+            if(!dataArray || dataArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria hari ini.</td></tr>';
+                return;
+            }
+
+            dataArray.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                // Highlight hijau jika polanya terdeteksi bagus
+                if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') {
+                    tr.classList.add('buy');
+                }
+
+                // Logika kolom terakhir: Tampilkan UT_Pos atau PSAR_Trend tergantung tabelnya
+                let trendColumn = '';
+                if(isPsar) {
+                    trendColumn = row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear';
+                } else {
+                    trendColumn = row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear';
+                }
+
+                tr.innerHTML = `
+                    <td><strong>${row.Ticker}</strong></td>
+                    <td>${row.Signal_Date}</td>
+                    <td>${row.Pattern_Label}</td>
+                    <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
+                    <td>${row.Pct_Change_Price}%</td>
+                    <td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td>
+                    <td>${trendColumn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Mengambil data JSON dan memasukkannya ke masing-masing tabel
         fetch('data.json')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('last_update').innerText = data.last_update;
                 
-                const tbody = document.querySelector('#superTable tbody');
+                // Panggil fungsi render untuk masing-masing tabel sesuai key di JSON
+                renderTable(data.super_screener, 'superTable');
+                renderTable(data.aroon_ut, 'aroonUtTable');
+                renderTable(data.ko_ut_vol, 'koUtVolTable');
                 
-                if(data.super_screener.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada saham yang masuk kriteria hari ini.</td></tr>';
-                    return;
-                }
-
-                data.super_screener.forEach(row => {
-                    const tr = document.createElement('tr');
-                    // Highlight hijau jika polanya bagus
-                    if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') {
-                        tr.classList.add('buy');
-                    }
-                    tr.innerHTML = `
-                        <td><strong>${row.Ticker}</strong></td>
-                        <td>${row.Signal_Date}</td>
-                        <td>${row.Pattern_Label}</td>
-                        <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
-                        <td>${row.Pct_Change_Price}%</td>
-                        <td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td>
-                        <td>${row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                // Parameter ketiga (true) memberitahu fungsi untuk mencetak Trend PSAR, bukan Trend UT
+                renderTable(data.aroon_psar, 'aroonPsarTable', true); 
             })
             .catch(error => {
                 document.getElementById('last_update').innerText = "Gagal memuat data. Sistem mungkin sedang update.";
+                console.error("Error fetching data:", error);
             });
     </script>
 </body>
