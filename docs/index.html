@@ -9,15 +9,18 @@
         .container { max-width: 1200px; margin: auto; }
         h1 { text-align: center; color: #2c3e50; }
         
-        /* --- STYLING UNTUK HALAMAN LOGIN --- */
+        /* LOGIN STYLES */
         #login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
         #login-container input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
         #login-container button { width: 95%; padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        #login-container button:hover { background: #1a252f; }
         #error-msg { color: #e74c3c; font-size: 14px; margin-top: 10px; display: none; }
 
-        /* --- STYLING DASHBOARD --- */
-        #dashboard-container { display: none; /* Disembunyikan secara default */ }
+        /* DASHBOARD STYLES */
+        #dashboard-container { display: none; }
+        .header-controls { text-align: center; margin-bottom: 20px; }
+        .date-picker { padding: 8px; font-size: 16px; border-radius: 4px; border: 1px solid #007bff; cursor: pointer; }
+        .logout-btn { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 16px; }
+        
         .update-time { text-align: center; color: #666; margin-bottom: 30px; font-style: italic; }
         .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-x: auto; margin-bottom: 40px; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -27,7 +30,6 @@
         .buy { background-color: #e8f5e9; }
         .buy td { color: #2e7d32; font-weight: bold; }
         h2 { margin-top: 0; color: #34495e; border-bottom: 2px solid #007bff; padding-bottom: 10px; display: inline-block;}
-        .logout-btn { display: block; margin: 0 auto 30px; background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -43,117 +45,122 @@
 
     <div id="dashboard-container" class="container">
         <h1>🚀 Dashboard Screener Saham IDX</h1>
-        <button class="logout-btn" onclick="logout()">Keluar (Logout)</button>
+        
+        <div class="header-controls">
+            <label for="historyDate" style="font-weight: bold;">Pilih Tanggal: </label>
+            <select id="historyDate" class="date-picker" onchange="loadSpecificDate(this.value)">
+                <option value="latest">Memuat tanggal...</option>
+            </select>
+            <button class="logout-btn" onclick="logout()">Keluar</button>
+        </div>
+
         <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
 
-        <div class="table-wrapper">
-            <h2>🏆 Super Screener</h2>
-            <table id="superTable">
-                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="table-wrapper">
-            <h2>🎯 Aroon + UT Screener</h2>
-            <table id="aroonUtTable">
-                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="table-wrapper">
-            <h2>🔥 KO + UT + Volume Screener</h2>
-            <table id="koUtVolTable">
-                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="table-wrapper">
-            <h2>⚡ Aroon + PSAR Screener</h2>
-            <table id="aroonPsarTable">
-                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
+        <div class="table-wrapper"><h2>🏆 Super Screener</h2><table id="superTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>🎯 Aroon + UT Screener</h2><table id="aroonUtTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>🔥 KO + UT + Volume Screener</h2><table id="koUtVolTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>⚡ Aroon + PSAR Screener</h2><table id="aroonPsarTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr></thead><tbody></tbody></table></div>
     </div>
 
     <script>
-        // --- PENGATURAN USERNAME DAN PASSWORD (Ubah di sini) ---
-        const VALID_USERNAME = "badrut_dci";
-        const VALID_PASSWORD = "badrut123";
-        // -------------------------------------------------------
+        const VALID_USERNAME = "admin";
+        const VALID_PASSWORD = "password123";
 
-        // Cek apakah user sudah login sebelumnya (session tetap ada sampai tab browser ditutup)
         window.onload = function() {
-            if (sessionStorage.getItem("isLoggedIn") === "true") {
-                showDashboard();
-            }
+            if (sessionStorage.getItem("isLoggedIn") === "true") { showDashboard(); }
         };
 
-        // Fungsi untuk mengecek login
         function checkLogin() {
             const user = document.getElementById("username").value;
             const pass = document.getElementById("password").value;
-
             if (user === VALID_USERNAME && pass === VALID_PASSWORD) {
-                // Login Berhasil
                 sessionStorage.setItem("isLoggedIn", "true");
                 document.getElementById("error-msg").style.display = "none";
                 showDashboard();
             } else {
-                // Login Gagal
                 document.getElementById("error-msg").style.display = "block";
             }
         }
 
-        // Fungsi untuk Logout
-        function logout() {
-            sessionStorage.removeItem("isLoggedIn");
-            location.reload(); // Refresh halaman agar kembali ke layar login
-        }
+        function logout() { sessionStorage.removeItem("isLoggedIn"); location.reload(); }
 
-        // Fungsi untuk menampilkan dashboard dan memuat data
         function showDashboard() {
             document.getElementById("login-container").style.display = "none";
             document.getElementById("dashboard-container").style.display = "block";
             
-            // Panggil fungsi untuk mengambil data JSON hanya SETELAH login berhasil
-            loadScreenerData();
+            // Saat dashboard terbuka, hal pertama yang dilakukan adalah mengambil daftar tanggal
+            fetchHistoryList();
         }
 
-        // Fungsi pembantu untuk merender tabel secara dinamis
         function renderTable(dataArray, tableId, isPsar = false) {
             const tbody = document.querySelector(`#${tableId} tbody`);
+            tbody.innerHTML = ''; // Kosongkan tabel sebelum diisi data baru
             
             if(!dataArray || dataArray.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria hari ini.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria.</td></tr>';
                 return;
             }
 
             dataArray.forEach(row => {
                 const tr = document.createElement('tr');
                 if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') { tr.classList.add('buy'); }
-
                 let trendColumn = isPsar ? (row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear') : (row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear');
-
-                tr.innerHTML = `
-                    <td><strong>${row.Ticker}</strong></td>
-                    <td>${row.Signal_Date}</td>
-                    <td>${row.Pattern_Label}</td>
-                    <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
-                    <td>${row.Pct_Change_Price}%</td>
-                    <td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td>
-                    <td>${trendColumn}</td>
-                `;
+                tr.innerHTML = `<td><strong>${row.Ticker}</strong></td><td>${row.Signal_Date}</td><td>${row.Pattern_Label}</td><td>Rp ${row.Close.toLocaleString('id-ID')}</td><td>${row.Pct_Change_Price}%</td><td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td><td>${trendColumn}</td>`;
                 tbody.appendChild(tr);
             });
         }
 
-        // Fungsi Utama untuk Load Data JSON
-        function loadScreenerData() {
-            fetch('data.json')
+        // --- FUNGSI BARU UNTUK HISTORY ---
+
+        // 1. Ambil daftar tanggal yang tersedia
+        function fetchHistoryList() {
+            fetch('history_list.json')
+                .then(response => {
+                    if (!response.ok) throw new Error("History belum tersedia");
+                    return response.json();
+                })
+                .then(dates => {
+                    const select = document.getElementById('historyDate');
+                    select.innerHTML = ''; // Kosongkan opsi
+                    
+                    if(dates.length === 0) {
+                        select.innerHTML = '<option value="latest">Hari Ini (Terbaru)</option>';
+                        loadScreenerData('data.json'); // Load default
+                        return;
+                    }
+
+                    // Tambahkan setiap tanggal ke dropdown
+                    dates.forEach(date => {
+                        const option = document.createElement('option');
+                        option.value = date;
+                        option.text = date;
+                        select.appendChild(option);
+                    });
+
+                    // Otomatis load data tanggal paling atas (paling baru)
+                    loadSpecificDate(dates[0]);
+                })
+                .catch(error => {
+                    // Jika file history belum terbuat, load data default
+                    console.log("File history_list.json belum ada, memuat data.json default.");
+                    document.getElementById('historyDate').innerHTML = '<option value="latest">Hari Ini (Terbaru)</option>';
+                    loadScreenerData('data.json');
+                });
+        }
+
+        // 2. Load data berdasarkan tanggal yang dipilih di dropdown
+        function loadSpecificDate(dateString) {
+            if(dateString === 'latest') {
+                loadScreenerData('data.json');
+            } else {
+                loadScreenerData(`data_${dateString}.json`);
+            }
+        }
+
+        // 3. Eksekutor untuk mengambil file JSON spesifik
+        function loadScreenerData(filename) {
+            document.getElementById('last_update').innerText = "Sedang mengambil data...";
+            fetch(filename)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('last_update').innerText = data.last_update;
@@ -163,11 +170,10 @@
                     renderTable(data.aroon_psar, 'aroonPsarTable', true); 
                 })
                 .catch(error => {
-                    document.getElementById('last_update').innerText = "Gagal memuat data. Sistem mungkin sedang update.";
+                    document.getElementById('last_update').innerText = "Gagal memuat data untuk tanggal ini.";
                 });
         }
 
-        // Menambahkan fitur tekan tombol "Enter" pada keyboard untuk login
         document.getElementById("password").addEventListener("keypress", function(event) {
             if (event.key === "Enter") { event.preventDefault(); checkLogin(); }
         });
