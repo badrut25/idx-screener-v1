@@ -742,38 +742,92 @@ def print_pretty(df, title=""):
 
 import json
 import os
+import glob
+from datetime import datetime
 
 if __name__ == "__main__":
-    # 1. Download Data
-    fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
-    data_storage = fetcher.fetch()
+    # ... (Bagian Download Data & Eksekusi Screener TETAP SAMA) ...
 
-    # 2. Setup Engines
-    screener = ScreenerEngine(data_storage)
-
-    # 3. Jalankan Screener
-    res_super = screener.run_super_screener()
-    res_aroon_ut = screener.run_aroon_ut_screener()
-    res_ko_ut = screener.run_ko_ut_vol_screener()
-    res_aroon_psar = screener.run_aroon_psar_screener()
-
-    # 4. Siapkan folder docs (wajib untuk GitHub Pages)
+    # 4. Siapkan folder docs
     os.makedirs('docs', exist_ok=True)
 
-    # 5. Gabungkan data ke dalam satu dictionary
+    # Dapatkan format tanggal hari ini (contoh: 2023-10-27)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S WIB")
+
+    # 5. Gabungkan data
     export_data = {
-        "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S WIB"),
+        "last_update": timestamp_str,
         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
     }
 
-    # 6. Simpan ke file JSON
+    # 6. Simpan file KHUSUS untuk tanggal hari ini
+    filename_today = f'docs/data_{today_str}.json'
+    with open(filename_today, 'w') as f:
+        json.dump(export_data, f, default=str)
+
+    # 7. Tetap simpan data.json sebagai default (data terbaru)
     with open('docs/data.json', 'w') as f:
         json.dump(export_data, f, default=str)
+
+    # 8. BACA SEMUA HISTORY YANG ADA DI FOLDER DOCS
+    history_files = glob.glob('docs/data_*.json')
+    available_dates = []
+    
+    for file in history_files:
+        # Mengambil nama file saja dan membuang kata 'data_' dan '.json'
+        # Contoh: data_2023-10-27.json -> 2023-10-27
+        base_name = os.path.basename(file)
+        date_part = base_name.replace('data_', '').replace('.json', '')
+        available_dates.append(date_part)
+
+    # Urutkan tanggal dari yang terbaru ke terlama
+    available_dates.sort(reverse=True)
+
+    # 9. Simpan daftar tanggal ke history_list.json
+    with open('docs/history_list.json', 'w') as f:
+        json.dump(available_dates, f)
         
-    print("✅ Data berhasil diekspor ke docs/data.json")
+    print(f"✅ Data tanggal {today_str} berhasil diekspor!")
+    print(f"📚 Total history tersimpan: {len(available_dates)} hari.")
+
+# import json
+# import os
+
+# if __name__ == "__main__":
+#     # 1. Download Data
+#     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
+#     data_storage = fetcher.fetch()
+
+#     # 2. Setup Engines
+#     screener = ScreenerEngine(data_storage)
+
+#     # 3. Jalankan Screener
+#     res_super = screener.run_super_screener()
+#     res_aroon_ut = screener.run_aroon_ut_screener()
+#     res_ko_ut = screener.run_ko_ut_vol_screener()
+#     res_aroon_psar = screener.run_aroon_psar_screener()
+
+#     # 4. Siapkan folder docs (wajib untuk GitHub Pages)
+#     os.makedirs('docs', exist_ok=True)
+
+#     # 5. Gabungkan data ke dalam satu dictionary
+#     export_data = {
+#         "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S WIB"),
+#         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
+#         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
+#         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
+#         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
+#     }
+
+#     # 6. Simpan ke file JSON
+#     with open('docs/data.json', 'w') as f:
+#         json.dump(export_data, f, default=str)
+        
+#     print("✅ Data berhasil diekspor ke docs/data.json")
 
 # if __name__ == "__main__":
 #     # 1. Download Data
