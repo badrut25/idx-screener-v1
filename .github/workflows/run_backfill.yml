@@ -1,0 +1,32 @@
+name: Run Time Machine (Backfill)
+
+on:
+  workflow_dispatch: # Ini yang membuat tombol "Run workflow" muncul
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Backfill Script
+        run: |
+          python backfill.py
+
+      - name: Commit and Push 2 Months History
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/
+          git commit -m "Inject 2 months historical data" || echo "No changes"
+          git push origin main
