@@ -746,9 +746,22 @@ import glob
 from datetime import datetime
 
 if __name__ == "__main__":
-    # ... (Bagian Download Data & Eksekusi Screener TETAP SAMA) ...
+    # 1. Download Data
+    fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
+    data_storage = fetcher.fetch()
 
-    # 4. Siapkan folder docs
+    # 2. Setup Engines
+    screener = ScreenerEngine(data_storage)
+
+    # 3. Jalankan Screener
+    res_super = screener.run_super_screener()
+    res_aroon_ut = screener.run_aroon_ut_screener()
+    res_ko_ut = screener.run_ko_ut_vol_screener()
+    res_aroon_psar = screener.run_aroon_psar_screener()
+
+    # 4. Siapkan folder docs (wajib untuk GitHub Pages)
+    import os
+    import glob
     os.makedirs('docs', exist_ok=True)
 
     # Dapatkan format tanggal hari ini (contoh: 2023-10-27)
@@ -765,6 +778,7 @@ if __name__ == "__main__":
     }
 
     # 6. Simpan file KHUSUS untuk tanggal hari ini
+    import json
     filename_today = f'docs/data_{today_str}.json'
     with open(filename_today, 'w') as f:
         json.dump(export_data, f, default=str)
@@ -778,8 +792,6 @@ if __name__ == "__main__":
     available_dates = []
     
     for file in history_files:
-        # Mengambil nama file saja dan membuang kata 'data_' dan '.json'
-        # Contoh: data_2023-10-27.json -> 2023-10-27
         base_name = os.path.basename(file)
         date_part = base_name.replace('data_', '').replace('.json', '')
         available_dates.append(date_part)
