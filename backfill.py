@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 
 # Kita 'meminjam' mesin yang sudah ada di screener.py
-from screener import StockDataFetcher, ScreenerEngine, Config
+from screener import StockDataFetcher, ScreenerEngine, Config, add_fundamentals
 
 if __name__ == "__main__":
     print("🚀 Memulai Mesin Waktu: Mengunduh data 400 hari ke belakang...")
@@ -40,12 +40,19 @@ if __name__ == "__main__":
 
         print(f"⏳ Menjalankan screener untuk tanggal: {target_date_str} (Mundur {offset} hari)")
 
+        # # Masukkan data masa lalu ke dalam mesin Screener
+        # screener = ScreenerEngine(sliced_data)
+        # res_super = screener.run_super_screener()
+        # res_aroon_ut = screener.run_aroon_ut_screener()
+        # res_ko_ut = screener.run_ko_ut_vol_screener()
+        # res_aroon_psar = screener.run_aroon_psar_screener()
+
         # Masukkan data masa lalu ke dalam mesin Screener
         screener = ScreenerEngine(sliced_data)
-        res_super = screener.run_super_screener()
-        res_aroon_ut = screener.run_aroon_ut_screener()
-        res_ko_ut = screener.run_ko_ut_vol_screener()
-        res_aroon_psar = screener.run_aroon_psar_screener()
+        res_super = add_fundamentals(screener.run_super_screener())
+        res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
+        res_ko_ut = add_fundamentals(screener.run_ko_ut_vol_screener())
+        res_aroon_psar = add_fundamentals(screener.run_aroon_psar_screener())
 
         # Bungkus hasilnya
         export_data = {
