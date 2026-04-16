@@ -740,6 +740,35 @@ def print_pretty(df, title=""):
     # Cetak tabel dengan format 'psql' (seperti database SQL) atau 'fancy_grid'
     print(tabulate(df_print, headers='keys', tablefmt='psql', showindex=False))
 
+# ==============================================================================
+# FUNGSI TAMBAHAN: MENGAMBIL DATA FUNDAMENTAL (PER & PBV)
+# ==============================================================================
+def add_fundamentals(df):
+    if df is None or df.empty:
+        return df
+    
+    print(f"⏳ Mengambil data PER & PBV untuk {len(df)} saham terpilih...")
+    pers = []
+    pbvs = []
+    
+    for t in df["Ticker"]:
+        try:
+            info = yf.Ticker(t).info
+            # Ambil trailing PE (jika kosong, coba forward PE)
+            per = info.get('trailingPE') or info.get('forwardPE', 'N/A')
+            pbv = info.get('priceToBook', 'N/A')
+            
+            pers.append(round(per, 2) if isinstance(per, (int, float)) else per)
+            pbvs.append(round(pbv, 2) if isinstance(pbv, (int, float)) else pbv)
+        except Exception as e:
+            pers.append('N/A')
+            pbvs.append('N/A')
+            
+    df_copy = df.copy()
+    df_copy["PER"] = pers
+    df_copy["PBV"] = pbvs
+    return df_copy
+
 import json
 import os
 import glob
@@ -753,11 +782,16 @@ if __name__ == "__main__":
     # 2. Setup Engines
     screener = ScreenerEngine(data_storage)
 
-    # 3. Jalankan Screener
-    res_super = screener.run_super_screener()
-    res_aroon_ut = screener.run_aroon_ut_screener()
-    res_ko_ut = screener.run_ko_ut_vol_screener()
-    res_aroon_psar = screener.run_aroon_psar_screener()
+    # # 3. Jalankan Screener
+    # res_super = screener.run_super_screener()
+    # res_aroon_ut = screener.run_aroon_ut_screener()
+    # res_ko_ut = screener.run_ko_ut_vol_screener()
+    # res_aroon_psar = screener.run_aroon_psar_screener()
+    # 3. Jalankan Screener & Ambil Fundamentalnya
+    res_super = add_fundamentals(screener.run_super_screener())
+    res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
+    res_ko_ut = add_fundamentals(screener.run_ko_ut_vol_screener())
+    res_aroon_psar = add_fundamentals(screener.run_aroon_psar_screener())
 
     # 4. Siapkan folder docs (wajib untuk GitHub Pages)
     import os
@@ -805,71 +839,3 @@ if __name__ == "__main__":
         
     print(f"✅ Data tanggal {today_str} berhasil diekspor!")
     print(f"📚 Total history tersimpan: {len(available_dates)} hari.")
-
-# import json
-# import os
-
-# if __name__ == "__main__":
-#     # 1. Download Data
-#     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
-#     data_storage = fetcher.fetch()
-
-#     # 2. Setup Engines
-#     screener = ScreenerEngine(data_storage)
-
-#     # 3. Jalankan Screener
-#     res_super = screener.run_super_screener()
-#     res_aroon_ut = screener.run_aroon_ut_screener()
-#     res_ko_ut = screener.run_ko_ut_vol_screener()
-#     res_aroon_psar = screener.run_aroon_psar_screener()
-
-#     # 4. Siapkan folder docs (wajib untuk GitHub Pages)
-#     os.makedirs('docs', exist_ok=True)
-
-#     # 5. Gabungkan data ke dalam satu dictionary
-#     export_data = {
-#         "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S WIB"),
-#         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
-#         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
-#         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
-#         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
-#     }
-
-#     # 6. Simpan ke file JSON
-#     with open('docs/data.json', 'w') as f:
-#         json.dump(export_data, f, default=str)
-        
-#     print("✅ Data berhasil diekspor ke docs/data.json")
-
-# if __name__ == "__main__":
-#     # 1. Download Data
-#     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
-#     data_storage = fetcher.fetch()
-
-#     # 2. Setup Engines
-#     screener = ScreenerEngine(data_storage)
-#     backtester = BacktestEngine(data_storage)
-
-#     # --- RUN SCREENERS ---
-
-#     # 1. Super Screener
-#     res1 = screener.run_super_screener()
-#     print_pretty(res1, "HASIL: SUPER SCREENER")
-
-#     # 2. Aroon + UT Screener
-#     res2 = screener.run_aroon_ut_screener()
-#     print_pretty(res2, "HASIL: AROON + UT SCREENER")
-
-#     # 3. KO + UT + Volume Screener
-#     res3 = screener.run_ko_ut_vol_screener()
-#     print_pretty(res3, "HASIL: KO + UT + VOLUME SCREENER")
-
-#     # 4. Aroon + PSAR Screener
-#     res4 = screener.run_aroon_psar_screener()
-#     print_pretty(res4, "HASIL: AROON + PSAR SCREENER")
-
-#     # --- RUN BACKTESTS (Opsional: Tampilkan Tabel Ringkasan) ---
-#     # Jika ingin melihat detail trade backtest yang rapi:
-
-#     bt1 = backtester.backtest_super()
-#     print_pretty(bt1.head(10), "BACKTEST SAMPLE: SUPER SCREENER (Top 10 Latest)")
