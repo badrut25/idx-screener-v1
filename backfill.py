@@ -15,7 +15,7 @@ if __name__ == "__main__":
     os.makedirs('docs', exist_ok=True)
 
     # 40 hari bursa = kurang lebih 2 bulan kalender
-    DAYS_TO_BACKFILL = 90
+    DAYS_TO_BACKFILL = 1
     all_generated_dates = set()
 
     for offset in range(DAYS_TO_BACKFILL, -1, -1):
