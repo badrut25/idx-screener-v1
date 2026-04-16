@@ -56,10 +56,10 @@
 
         <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
 
-        <div class="table-wrapper"><h2>🏆 Super Screener</h2><table id="superTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
-        <div class="table-wrapper"><h2>🎯 Aroon + UT Screener</h2><table id="aroonUtTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
-        <div class="table-wrapper"><h2>🔥 KO + UT + Volume Screener</h2><table id="koUtVolTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
-        <div class="table-wrapper"><h2>⚡ Aroon + PSAR Screener</h2><table id="aroonPsarTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Spike Volume?</th><th>Trend PSAR</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>🏆 Super Screener</h2><table id="superTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>%Chg</th><th>Volume</th><th>Spike Volume?</th><th>PER</th><th>PBV</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>🎯 Aroon + UT Screener</h2><table id="aroonUtTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>%Chg</th><th>Volume</th><th>Spike Volume?</th><th>PER</th><th>PBV</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>🔥 KO + UT + Volume Screener</h2><table id="koUtVolTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>%Chg</th><th>Volume</th><th>Spike Volume?</th><th>PER</th><th>PBV</th><th>Trend UT</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrapper"><h2>⚡ Aroon + PSAR Screener</h2><table id="aroonPsarTable"><thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>%Chg</th><th>Volume</th><th>Spike Volume?</th><th>PER</th><th>PBV</th><th>Trend PSAR</th></tr></thead><tbody></tbody></table></div>
     </div>
 
     <script>
@@ -92,23 +92,67 @@
             fetchHistoryList();
         }
 
+        // Fungsi pembantu untuk memformat angka Volume
+        function formatVolume(vol) {
+            if (!vol) return '-';
+            if (vol >= 1000000000) return (vol / 1000000000).toFixed(2) + ' Milyar';
+            if (vol >= 1000000) return (vol / 1000000).toFixed(2) + ' Juta';
+            return vol.toLocaleString('id-ID');
+        }
+
         function renderTable(dataArray, tableId, isPsar = false) {
             const tbody = document.querySelector(`#${tableId} tbody`);
-            tbody.innerHTML = ''; // Kosongkan tabel sebelum diisi data baru
+            tbody.innerHTML = ''; 
             
             if(!dataArray || dataArray.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria.</td></tr>';
                 return;
             }
 
             dataArray.forEach(row => {
                 const tr = document.createElement('tr');
                 if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') { tr.classList.add('buy'); }
+                
                 let trendColumn = isPsar ? (row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear') : (row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear');
-                tr.innerHTML = `<td><strong>${row.Ticker}</strong></td><td>${row.Signal_Date}</td><td>${row.Pattern_Label}</td><td>Rp ${row.Close.toLocaleString('id-ID')}</td><td>${row.Pct_Change_Price}%</td><td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td><td>${trendColumn}</td>`;
+                
+                // Ambil data fundamental (jika ada, jika tidak set menjadi N/A atau -)
+                const volFormatted = formatVolume(row.Volume);
+                const perVal = row.PER !== undefined ? row.PER : '-';
+                const pbvVal = row.PBV !== undefined ? row.PBV : '-';
+
+                tr.innerHTML = `
+                    <td><strong>${row.Ticker}</strong></td>
+                    <td>${row.Signal_Date}</td>
+                    <td>${row.Pattern_Label}</td>
+                    <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
+                    <td>${row.Pct_Change_Price}%</td>
+                    <td>${volFormatted}</td>
+                    <td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td>
+                    <td>${perVal}</td>
+                    <td>${pbvVal}</td>
+                    <td>${trendColumn}</td>
+                `;
                 tbody.appendChild(tr);
             });
         }
+        
+        // function renderTable(dataArray, tableId, isPsar = false) {
+        //     const tbody = document.querySelector(`#${tableId} tbody`);
+        //     tbody.innerHTML = ''; // Kosongkan tabel sebelum diisi data baru
+            
+        //     if(!dataArray || dataArray.length === 0) {
+        //         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria.</td></tr>';
+        //         return;
+        //     }
+
+        //     dataArray.forEach(row => {
+        //         const tr = document.createElement('tr');
+        //         if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') { tr.classList.add('buy'); }
+        //         let trendColumn = isPsar ? (row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear') : (row.UT_Pos === 1 ? '📈 Bull' : '📉 Bear');
+        //         tr.innerHTML = `<td><strong>${row.Ticker}</strong></td><td>${row.Signal_Date}</td><td>${row.Pattern_Label}</td><td>Rp ${row.Close.toLocaleString('id-ID')}</td><td>${row.Pct_Change_Price}%</td><td>${row.Volume_Spike ? '✅ Ya' : '❌ Tidak'}</td><td>${trendColumn}</td>`;
+        //         tbody.appendChild(tr);
+        //     });
+        // }
 
         // --- FUNGSI BARU UNTUK HISTORY ---
 
