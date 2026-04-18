@@ -102,7 +102,7 @@ class Config:
     LOOKBACK_DAYS_HISTORY = 400
 
     # --- Logic Settings ---
-    RECENT_BARS = 2          # Window pengecekan sinyal (Screener)
+    RECENT_BARS = 1          # Window pengecekan sinyal (Screener)
     BACKTEST_WINDOW = 60     # Cek sinyal dalam 60 hari terakhir (Backtest)
     HORIZONS = [3, 5, 10, 20] # Target hold hari untuk Backtest
 
