@@ -1,27 +1,19 @@
-# @title OOP Complete Suite: 3 Screeners + 3 Backtesters (Chunking & Auto-Update)- pake ini ya
+# @title OOP Complete Suite: 3 Screeners + 3 Backtesters + Telegram + WIB Timezone
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta, date
-from tabulate import tabulate  # <--- INI BARIS YANG HILANG SEBELUMNYA
+from datetime import datetime, timedelta, timezone
+from tabulate import tabulate
+import json
+import os
+import glob
+import time
+import requests
 
 # ==============================================================================
 # 1. CONFIGURATION
 # ==============================================================================
 class Config:
-    # --- Ticker List ---
-    TICKERS1 = [
-        "AALI", "ABBA", "ACES", "ADRO", "AGII", "AKRA", "AMRT", "ANTM", "APLN",
-        "ARTO", "ASII", "ASRI", "BBCA", "BBNI", "BBRI", "BBTN", "BDMN", "BEST",
-        "BFIN", "BMRI", "BRIS", "BRPT", "BSDE", "BTPS", "BUMI", "BYAN", "CPIN",
-        "CTRA", "DILD", "DMAS", "ELSA", "EMTK", "ENRG", "ERAA", "EXCL", "GGRM",
-        "GOTO", "HRUM", "ICBP", "INCO", "INDF", "INKP", "INTP", "ISAT", "ITMG",
-        "JPFA", "JSMR", "KLBF", "MAPI", "MDKA", "MEDC", "MIKA", "MNCN", "MTEL",
-        "MYOR", "PGAS", "PTBA", "PTPP", "PWON", "SCMA", "SIDO", "SMGR", "SMRA",
-        "SRTG", "TBIG", "TINS", "TKIM", "TLKM", "TOWR", "TPIA", "UNTR", "UNVR",
-        "WIKA", "WSKT", "BELI", "BUKA", "PADA", "GPRA", "BSML", "CITY", "FREN",
-        "DEWA", "BREN", "CUAN", "STRK", "BRAND", "GOLA", "CARE"
-    ]
     TICKERS = [
         "AALI", "ABBA", "ABDA", "ABMM", "ACES", "ACST", "ADES", "ADHI", "ADMF", "ADMG", "ADRO", "AGII", "AGRO", "AGRS",
         "AHAP", "AIMS", "AISA", "AKKU", "AKPI", "AKRA", "AKSI", "ALDO", "ALKA", "ALMI", "ALTO", "AMAG", "AMFG", "AMIN",
@@ -94,49 +86,24 @@ class Config:
         "YUPI", "FORE", "MDLA", "DKHH", "PSAT", "CDIA", "COIN", "BLOG", "CHEK", "MERI", "ASPR", "PMUI", "EMAS", "PJHB",
         "RLCO", "SUPA"
     ]
-
     MARKET_SUFFIX = ".JK"
-
-    # --- Time Settings ---
-    # 400 hari agar backtest punya data history yang cukup
     LOOKBACK_DAYS_HISTORY = 400
-
-    # --- Logic Settings ---
-    RECENT_BARS = 1          # Window pengecekan sinyal (Screener)
-    BACKTEST_WINDOW = 60     # Cek sinyal dalam 60 hari terakhir (Backtest)
-    HORIZONS = [3, 5, 10, 20] # Target hold hari untuk Backtest
-
-    # --- Indicator Params ---
+    
+    # DIKEMBALIKAN KE 2 AGAR TIDAK TERLALU KETAT
+    RECENT_BARS = 2          
+    
+    BACKTEST_WINDOW = 60     
+    HORIZONS = [3, 5, 10, 20]
     AROON_LEN = 8
-
-    KLINGER_FAST = 34
-    KLINGER_SLOW = 55
-    KLINGER_SIG = 13
-    KLINGER_TRIG = 13
-
-    MACD_FAST = 12
-    MACD_SLOW = 26
-    MACD_SIG = 9
-
-    UT_A = 1.0
-    UT_C = 10
-
-    ST_PERIOD = 10
-    ST_MULT = 3.0
-
-    # --- Filters ---
+    KLINGER_FAST, KLINGER_SLOW, KLINGER_SIG, KLINGER_TRIG = 34, 55, 13, 13
+    MACD_FAST, MACD_SLOW, MACD_SIG = 12, 26, 9
+    UT_A, UT_C = 1.0, 10
+    ST_PERIOD, ST_MULT = 10, 3.0
     REQUIRE_KO_POSITIVE = False
     REQUIRE_HIST_RISING = False
-
     USE_VOLUME_FILTER = True
-    VOL_MA = 20
-    VOL_MULT = 1.5
-    MIN_VOL = 500_000
-
-    # --- PSAR Params ---
-    PSAR_START = 0.02
-    PSAR_INC = 0.02
-    PSAR_MAX = 0.2
+    VOL_MA, VOL_MULT, MIN_VOL = 20, 1.5, 500_000
+    PSAR_START, PSAR_INC, PSAR_MAX = 0.02, 0.02, 0.2
 
 # ==============================================================================
 # 2. DATA FETCHER (Chunking)
@@ -149,26 +116,11 @@ class StockDataFetcher:
     def fetch(self, chunk_size=30):
         print(f"🚀 Memulai Download Data (Start: {self.start_date})...")
         all_dfs = {}
-
         for i in range(0, len(self.tickers), chunk_size):
             batch = self.tickers[i : i + chunk_size]
-            # print(f"   > Batch {i+1} - {min(i+chunk_size, len(self.tickers))}...")
-
             try:
-                data = yf.download(
-                    tickers=" ".join(batch),
-                    start=self.start_date,
-                    end=None,
-                    interval="1d",
-                    group_by="ticker",
-                    auto_adjust=False,
-                    threads=True,
-                    progress=False
-                )
-
+                data = yf.download(" ".join(batch), start=self.start_date, interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
                 if data.empty: continue
-
-                # Parsing MultiIndex
                 if len(batch) == 1:
                     clean_name = batch[0].replace(".JK", "")
                     all_dfs[clean_name] = data
@@ -178,149 +130,94 @@ class StockDataFetcher:
                             clean_name = t.replace(".JK", "")
                             df_t = data[t].copy()
                             df_t.dropna(how='all', inplace=True)
-                            if not df_t.empty:
-                                all_dfs[clean_name] = df_t
-
+                            if not df_t.empty: all_dfs[clean_name] = df_t
             except Exception as e:
-                print(f"   ⚠️ Error batch: {e}")
                 continue
-
         print(f"✅ Selesai. Dapat {len(all_dfs)} ticker valid.\n")
         return all_dfs
 
 # ==============================================================================
-# REVISI: TECHNICAL INDICATORS (Fix UT Bot Index Bug)
+# 3. TECHNICAL INDICATORS
 # ==============================================================================
 class TechnicalIndicators:
-    # ... (Metode wilder_rma, compute_true_range, klinger, aroon, macd SAMA SEPERTI SEBELUMNYA)
-    # Tulis ulang saja agar lengkap, atau pastikan add_ut_bot diganti:
-
     @staticmethod
-    def wilder_rma(series, period):
-        return series.ewm(alpha=1/period, adjust=False).mean()
+    def wilder_rma(series, period): return series.ewm(alpha=1/period, adjust=False).mean()
 
     @staticmethod
     def compute_true_range(df):
-        high, low, close = df["High"], df["Low"], df["Close"]
-        prev_close = close.shift(1)
-        tr1 = high - low
-        tr2 = (high - prev_close).abs()
-        tr3 = (low - prev_close).abs()
-        return pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        high, low, close, prev_close = df["High"], df["Low"], df["Close"], df["Close"].shift(1)
+        return pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
 
     @staticmethod
     def add_klinger_pine_exact(df, trig_len=13, fast_x=34, slow_x=55):
-        high, low, close, vol = df["High"], df["Low"], df["Close"], df["Volume"]
-        hlc3 = (high + low + close) / 3.0
-        hlc3_prev = hlc3.shift(1)
-        xTrend = np.where(hlc3 > hlc3_prev, vol * 100.0, -vol * 100.0)
-        xTrend = pd.Series(xTrend, index=df.index)
-        xFast = xTrend.ewm(span=fast_x, adjust=False).mean()
-        xSlow = xTrend.ewm(span=slow_x, adjust=False).mean()
-        xKVO = xFast - xSlow
-        xTrigger = xKVO.ewm(span=trig_len, adjust=False).mean()
-        df["KO"] = xKVO
-        df["KO_Signal"] = xTrigger
+        hlc3 = (df["High"] + df["Low"] + df["Close"]) / 3.0
+        xTrend = pd.Series(np.where(hlc3 > hlc3.shift(1), df["Volume"] * 100.0, -df["Volume"] * 100.0), index=df.index)
+        xKVO = xTrend.ewm(span=fast_x, adjust=False).mean() - xTrend.ewm(span=slow_x, adjust=False).mean()
+        df["KO"], df["KO_Signal"] = xKVO, xKVO.ewm(span=trig_len, adjust=False).mean()
         return df
 
     @staticmethod
     def add_aroon_pine_exact(df, length=8):
-        highs = df["High"].values
-        lows = df["Low"].values
-        n = len(df)
-        highestbars_list = np.full(n, np.nan)
-        lowestbars_list = np.full(n, np.nan)
+        highs, lows, n = df["High"].values, df["Low"].values, len(df)
+        highestbars_list, lowestbars_list = np.full(n, np.nan), np.full(n, np.nan)
         for i in range(length, n):
-            window_high = highs[i - length : i + 1]
-            window_low = lows[i - length : i + 1]
-            highestbars_list[i] = np.argmax(window_high) - length
-            lowestbars_list[i] = np.argmin(window_low) - length
-        df["Aroon_Up"] = 100.0 * (highestbars_list + length) / length
-        df["Aroon_Down"] = 100.0 * (lowestbars_list + length) / length
+            highestbars_list[i] = np.argmax(highs[i - length : i + 1]) - length
+            lowestbars_list[i] = np.argmin(lows[i - length : i + 1]) - length
+        df["Aroon_Up"], df["Aroon_Down"] = 100.0 * (highestbars_list + length) / length, 100.0 * (lowestbars_list + length) / length
         return df
 
     @staticmethod
     def add_macd(df, fast=12, slow=26, signal=9):
-        src = df["Close"]
-        fast_ma = src.ewm(span=fast, adjust=False).mean()
-        slow_ma = src.ewm(span=slow, adjust=False).mean()
-        macd = fast_ma - slow_ma
+        macd = df["Close"].ewm(span=fast, adjust=False).mean() - df["Close"].ewm(span=slow, adjust=False).mean()
         sig = macd.ewm(span=signal, adjust=False).mean()
-        df["MACD"] = macd
-        df["MACD_Signal"] = sig
-        df["MACD_Hist"] = macd - sig
+        df["MACD"], df["MACD_Signal"], df["MACD_Hist"] = macd, sig, macd - sig
         return df
 
-    # === BAGIAN YANG DIPERBAIKI (BUG FIX) ===
     @staticmethod
     def add_ut_bot(df, a=1.0, c=10):
         close = df["Close"]
         tr = TechnicalIndicators.compute_true_range(df)
         xATR = TechnicalIndicators.wilder_rma(tr, c)
         nLoss = a * xATR
-        src_ut = close
 
         xATRTrailingStop = np.zeros(len(df))
         pos = np.zeros(len(df), dtype=int)
-        src_val = src_ut.values
-        nLoss_val = nLoss.values
+        src_val, nLoss_val = close.values, nLoss.values
 
         for i in range(1, len(df)):
-            prev_stop = xATRTrailingStop[i-1]
-            price = src_val[i]
-            loss = nLoss_val[i]
-            if (src_val[i-1] > prev_stop) and (price > prev_stop):
-                xATRTrailingStop[i] = max(prev_stop, price - loss)
-            elif (src_val[i-1] < prev_stop) and (price < prev_stop):
-                xATRTrailingStop[i] = min(prev_stop, price + loss)
-            elif price > prev_stop:
-                xATRTrailingStop[i] = price - loss
-            else:
-                xATRTrailingStop[i] = price + loss
+            prev_stop, price, loss = xATRTrailingStop[i-1], src_val[i], nLoss_val[i]
+            if (src_val[i-1] > prev_stop) and (price > prev_stop): xATRTrailingStop[i] = max(prev_stop, price - loss)
+            elif (src_val[i-1] < prev_stop) and (price < prev_stop): xATRTrailingStop[i] = min(prev_stop, price + loss)
+            elif price > prev_stop: xATRTrailingStop[i] = price - loss
+            else: xATRTrailingStop[i] = price + loss
 
         for i in range(1, len(df)):
-            price = src_val[i]
-            prev_stop = xATRTrailingStop[i-1]
-            prev_pos = pos[i-1]
-            if (src_val[i-1] < prev_stop) and (price > prev_stop):
-                pos[i] = 1
-            elif (src_val[i-1] > prev_stop) and (price < prev_stop):
-                pos[i] = -1
-            else:
-                pos[i] = prev_pos
+            price, prev_stop, prev_pos = src_val[i], xATRTrailingStop[i-1], pos[i-1]
+            if (src_val[i-1] < prev_stop) and (price > prev_stop): pos[i] = 1
+            elif (src_val[i-1] > prev_stop) and (price < prev_stop): pos[i] = -1
+            else: pos[i] = prev_pos
 
-        df["UT_Stop"] = xATRTrailingStop
-        df["UT_Pos"] = pos
-
-        # PERBAIKAN: Gunakan shift pada kolom DataFrame, bukan pada list/numpy array
-        # Agar index tanggal tetap sinkron.
+        df["UT_Stop"], df["UT_Pos"] = xATRTrailingStop, pos
         df["UT_Buy"] = (df["UT_Pos"] == 1) & (df["UT_Pos"].shift(1) != 1)
         return df
 
     @staticmethod
     def add_supertrend(df, period=10, multiplier=3.0):
-        high, low, close = df["High"], df["Low"], df["Close"]
-        src = (high + low) / 2.0
-        tr = TechnicalIndicators.compute_true_range(df)
-        atr = TechnicalIndicators.wilder_rma(tr, period)
-        up = src - (multiplier * atr)
-        dn = src + (multiplier * atr)
-        st = np.zeros(len(df))
-        trend = np.zeros(len(df), dtype=int)
-        up_val, dn_val, close_val = up.values, dn.values, close.values
-        st[0] = up_val[0]; trend[0] = 1
+        src = (df["High"] + df["Low"]) / 2.0
+        atr = TechnicalIndicators.wilder_rma(TechnicalIndicators.compute_true_range(df), period)
+        up, dn = src - (multiplier * atr), src + (multiplier * atr)
+        st, trend = np.zeros(len(df)), np.zeros(len(df), dtype=int)
+        up_val, dn_val, close_val = up.values, dn.values, df["Close"].values
+        st[0], trend[0] = up_val[0], 1
 
         for i in range(1, len(df)):
             prev_st = st[i-1]
-            if close_val[i-1] > st[i-1] and trend[i-1] == 1: curr_up = max(up_val[i], st[i-1])
-            else: curr_up = up_val[i]
-            if close_val[i-1] < st[i-1] and trend[i-1] == -1: curr_dn = min(dn_val[i], st[i-1])
-            else: curr_dn = dn_val[i]
-
+            curr_up = max(up_val[i], st[i-1]) if close_val[i-1] > st[i-1] and trend[i-1] == 1 else up_val[i]
+            curr_dn = min(dn_val[i], st[i-1]) if close_val[i-1] < st[i-1] and trend[i-1] == -1 else dn_val[i]
             prev_trend = trend[i-1]
-            if prev_trend == -1 and close_val[i] > prev_st: trend[i] = 1; st[i] = curr_up
-            elif prev_trend == 1 and close_val[i] < prev_st: trend[i] = -1; st[i] = curr_dn
-            else: trend[i] = prev_trend; st[i] = curr_up if trend[i] == 1 else curr_dn
+            if prev_trend == -1 and close_val[i] > prev_st: trend[i], st[i] = 1, curr_up
+            elif prev_trend == 1 and close_val[i] < prev_st: trend[i], st[i] = -1, curr_dn
+            else: trend[i], st[i] = prev_trend, curr_up if trend[i] == 1 else curr_dn
 
         df["ST_Trend"] = trend
         df["ST_Buy"] = (df["ST_Trend"] == 1) & (pd.Series(trend).shift(1) == -1)
@@ -337,113 +234,63 @@ class TechnicalIndicators:
 
     @staticmethod
     def add_psar(df, start=0.02, increment=0.02, maximum=0.2):
-        high = df['High'].values
-        low = df['Low'].values
-        length = len(df)
+        high, low, length = df['High'].values, df['Low'].values, len(df)
+        psar, psar_trend = np.zeros(length), np.zeros(length, dtype=int)
+        if length == 0: return df
 
-        psar = np.zeros(length)
-        psar_trend = np.zeros(length, dtype=int) # 1 untuk Bullish, -1 untuk Bearish
-
-        if length == 0:
-            return df
-
-        bull = True
-        af = start
-        hp = high[0]
-        lp = low[0]
-        psar[0] = low[0]
+        bull, af, hp, lp, psar[0] = True, start, high[0], low[0], low[0]
 
         for i in range(1, length):
             prev_psar = psar[i-1]
-
             if bull:
-                psar[i] = prev_psar + af * (hp - prev_psar)
-                psar[i] = min(psar[i], low[i-1])
-                if i > 1:
-                    psar[i] = min(psar[i], low[i-2])
-
-                # Cek Reversal
+                psar[i] = min(prev_psar + af * (hp - prev_psar), low[i-1])
+                if i > 1: psar[i] = min(psar[i], low[i-2])
                 if low[i] < psar[i]:
-                    bull = False
-                    psar[i] = hp
-                    hp = high[i]
-                    lp = low[i]
-                    af = start
+                    bull, psar[i], hp, lp, af = False, hp, high[i], low[i], start
                 else:
-                    if high[i] > hp:
-                        hp = high[i]
-                        af = min(af + increment, maximum)
+                    if high[i] > hp: hp, af = high[i], min(af + increment, maximum)
             else:
-                psar[i] = prev_psar + af * (lp - prev_psar)
-                psar[i] = max(psar[i], high[i-1])
-                if i > 1:
-                    psar[i] = max(psar[i], high[i-2])
-
-                # Cek Reversal
+                psar[i] = max(prev_psar + af * (lp - prev_psar), high[i-1])
+                if i > 1: psar[i] = max(psar[i], high[i-2])
                 if high[i] > psar[i]:
-                    bull = True
-                    psar[i] = lp
-                    hp = high[i]
-                    lp = low[i]
-                    af = start
+                    bull, psar[i], hp, lp, af = True, lp, high[i], low[i], start
                 else:
-                    if low[i] < lp:
-                        lp = low[i]
-                        af = min(af + increment, maximum)
-
+                    if low[i] < lp: lp, af = low[i], min(af + increment, maximum)
             psar_trend[i] = 1 if bull else -1
 
-        df["PSAR"] = psar
-        df["PSAR_Trend"] = psar_trend
+        df["PSAR"], df["PSAR_Trend"] = psar, psar_trend
         df["PSAR_Buy"] = (df["PSAR_Trend"] == 1) & (df["PSAR_Trend"].shift(1) == -1)
-
         return df
 
 # ==============================================================================
-# 4. SIGNAL CHECKERS (Mixin)
-#    Dipakai bersama oleh Screener dan Backtester
+# 4. ENGINE LOGIC & EXECUTION
 # ==============================================================================
 class SignalLogic:
     def is_aroon_buys(self, df, j):
         if j <= 0: return False
-        return (df["Aroon_Up"].iloc[j-1] <= df["Aroon_Down"].iloc[j-1]) and \
-               (df["Aroon_Up"].iloc[j] > df["Aroon_Down"].iloc[j])
+        return (df["Aroon_Up"].iloc[j-1] <= df["Aroon_Down"].iloc[j-1]) and (df["Aroon_Up"].iloc[j] > df["Aroon_Down"].iloc[j])
 
     def is_ko_bullish(self, df, j, require_pos=True):
         if j <= 0: return False
-        cross_up = (df["KO"].iloc[j-1] <= df["KO_Signal"].iloc[j-1]) and \
-                   (df["KO"].iloc[j] > df["KO_Signal"].iloc[j])
-        if not cross_up: return False
-        if require_pos and df["KO"].iloc[j] <= 0: return False
-        return True
+        cross_up = (df["KO"].iloc[j-1] <= df["KO_Signal"].iloc[j-1]) and (df["KO"].iloc[j] > df["KO_Signal"].iloc[j])
+        return False if not cross_up else (not require_pos or df["KO"].iloc[j] > 0)
 
     def is_macd_bullish(self, df, j, require_rising=False):
         if j <= 0: return False
         hist = df["MACD_Hist"].iloc[j]
         if hist <= 0: return False
-        if require_rising and hist <= df["MACD_Hist"].iloc[j-1]: return False
-        return True
+        return False if require_rising and hist <= df["MACD_Hist"].iloc[j-1] else True
 
     def is_psar_bullish(self, df, j, require_fresh_crossover=False):
         if j <= 0: return False
-        # Jika True, hanya ambil saat HARI INI persis titik PSAR pindah ke bawah candle (Buy Signal)
-        if require_fresh_crossover:
-            return bool(df["PSAR_Buy"].iloc[j])
-        # Jika False, asalkan titik PSAR ada di bawah candle (sedang trend naik), return True
-        return df["PSAR_Trend"].iloc[j] == 1
+        return bool(df["PSAR_Buy"].iloc[j]) if require_fresh_crossover else df["PSAR_Trend"].iloc[j] == 1
 
-# ==============================================================================
-# REVISI FINAL: SCREENER ENGINE (Sorted Newest -> Oldest)
-# ==============================================================================
 class ScreenerEngine(SignalLogic):
-    def __init__(self, data_dict):
-        self.data_dict = data_dict
+    def __init__(self, data_dict): self.data_dict = data_dict
 
     def _prepare_df(self, df):
         if len(df) < 50: return None
-        df = df.copy()
-        # Hitung indikator
-        df = TechnicalIndicators.add_klinger_pine_exact(df, Config.KLINGER_TRIG, Config.KLINGER_FAST, Config.KLINGER_SLOW)
+        df = TechnicalIndicators.add_klinger_pine_exact(df.copy(), Config.KLINGER_TRIG, Config.KLINGER_FAST, Config.KLINGER_SLOW)
         df = TechnicalIndicators.add_aroon_pine_exact(df, Config.AROON_LEN)
         df = TechnicalIndicators.add_macd(df, Config.MACD_FAST, Config.MACD_SLOW, Config.MACD_SIG)
         df = TechnicalIndicators.add_volume_filters(df, Config.VOL_MA, Config.VOL_MULT, Config.MIN_VOL)
@@ -454,355 +301,125 @@ class ScreenerEngine(SignalLogic):
         return df
 
     def classify_pattern(self, row):
-        st_trend = row.get("ST_Trend", 0)
-        st_buy   = row.get("ST_Buy", False)
-        ut_pos   = row.get("UT_Pos", 0)
-        vol_spike = row.get("Volume_Spike", False)
-        pct_price = row.get("Pct_Change_Price", 0)
-
+        st_trend, ut_pos, vol_spike, pct_price = row.get("ST_Trend", 0), row.get("UT_Pos", 0), row.get("Volume_Spike", False), row.get("Pct_Change_Price", 0)
         if st_trend == 1 and ut_pos == 1 and vol_spike and pct_price < 12: return "RUNNER"
         if ut_pos == 1 and vol_spike and pct_price >= 5: return "POP_CEPAT"
-        if st_trend == -1: return "NOISE_TRAP"
-        return "UNCLASSIFIED"
+        return "NOISE_TRAP" if st_trend == -1 else "UNCLASSIFIED"
 
     def _package_result(self, t, df, j):
-        row = df.iloc[j]
-        prev = df.iloc[j-1]
+        row, prev = df.iloc[j], df.iloc[j-1]
         res = {
-            "Ticker": t,
-            "Signal_Date": row.name.date(),
-            "Bars_Ago": len(df) - 1 - j,
-            "Open": int(row["Open"]),
-            "Close": int(row["Close"]),
-            "Pct_Change_Price": round((row["Close"]-prev["Close"])/prev["Close"]*100, 2),
-            "Volume": int(row["Volume"]),
-            "Volume_Spike": bool(row["Volume_Spike"]),
-            "KO": round(row["KO"], 2),
-            "UT_Buy": bool(row["UT_Buy"]),
-            "ST_Trend": int(row["ST_Trend"]),
-            "Aroon_Up": round(row["Aroon_Up"], 1),
-            "UT_Pos": int(row["UT_Pos"]),
-            "PSAR_Trend": "Bull" if row["PSAR_Trend"] == 1 else "Bear" # <--- Tambahan
+            "Ticker": t, "Signal_Date": row.name.date(), "Bars_Ago": len(df) - 1 - j,
+            "Open": int(row["Open"]), "Close": int(row["Close"]), "Pct_Change_Price": round((row["Close"]-prev["Close"])/prev["Close"]*100, 2),
+            "Volume": int(row["Volume"]), "Volume_Spike": bool(row["Volume_Spike"]),
+            "KO": round(row["KO"], 2), "UT_Buy": bool(row["UT_Buy"]), "ST_Trend": int(row["ST_Trend"]),
+            "Aroon_Up": round(row["Aroon_Up"], 1), "UT_Pos": int(row["UT_Pos"]),
+            "PSAR_Trend": "Bull" if row["PSAR_Trend"] == 1 else "Bear"
         }
         res["Pattern_Label"] = self.classify_pattern(res)
         return res
 
-    # --- HELPER BARU: SORTING OUTPUT ---
     def _finalize_and_sort(self, results):
         df = pd.DataFrame(results)
-        if df.empty: return df
+        return df.sort_values(by=["Signal_Date", "Volume_Spike", "Pct_Change_Price"], ascending=[False, False, False]).reset_index(drop=True) if not df.empty else df
 
-        # LOGIKA SORTING:
-        # 1. Signal_Date Descending (Terbaru di atas)
-        # 2. Volume_Spike Descending (True di atas)
-        # 3. Pct_Change_Price Descending (Kenaikan tertinggi di atas)
-        df = df.sort_values(
-            by=["Signal_Date", "Volume_Spike", "Pct_Change_Price"],
-            ascending=[False, False, False]
-        ).reset_index(drop=True)
-        return df
-
-    # --- 1. SUPER SCREENER ---
     def run_super_screener(self):
-        print("\n🔎 Running SUPER SCREENER...")
         results = []
         for t, df in self.data_dict.items():
-            df = self._prepare_df(df)
-            if df is None: continue
-
-            last_idx = len(df) - 1
-            j_start = max(1, last_idx - Config.RECENT_BARS + 1)
-
-            for j in range(j_start, last_idx + 1):
-                c_aroon = self.is_aroon_buys(df, j)
-                c_ko = self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE)
-                c_macd = self.is_macd_bullish(df, j, Config.REQUIRE_HIST_RISING)
-                c_ut_trend = (df["UT_Pos"].iloc[j] == 1)
-                c_vol = True
-                if Config.USE_VOLUME_FILTER:
-                    c_vol = bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])
-
-                if c_aroon and c_ko and c_macd and c_ut_trend and c_vol:
-                    results.append(self._package_result(t, df, j))
-                    break
-
+            if (df := self._prepare_df(df)) is None: continue
+            for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
+                if self.is_aroon_buys(df, j) and self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE) and self.is_macd_bullish(df, j, Config.REQUIRE_HIST_RISING) and (df["UT_Pos"].iloc[j] == 1) and (bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])):
+                    results.append(self._package_result(t, df, j)); break
         return self._finalize_and_sort(results)
 
-    # --- 2. AROON + UT SCREENER ---
     def run_aroon_ut_screener(self):
-        print("\n🔎 Running AROON + UT SCREENER...")
         results = []
         for t, df in self.data_dict.items():
-            df = self._prepare_df(df)
-            if df is None: continue
-
-            last_idx = len(df) - 1
-            j_start = max(1, last_idx - Config.RECENT_BARS + 1)
-
-            for j in range(j_start, last_idx + 1):
-                c_aroon = self.is_aroon_buys(df, j)
-                c_ut = bool(df["UT_Buy"].iloc[j])
-
-                if c_aroon and c_ut:
-                    results.append(self._package_result(t, df, j))
-                    break
-
+            if (df := self._prepare_df(df)) is None: continue
+            for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
+                if self.is_aroon_buys(df, j) and bool(df["UT_Buy"].iloc[j]):
+                    results.append(self._package_result(t, df, j)); break
         return self._finalize_and_sort(results)
 
-    # --- 3. KO + UT + VOLUME SCREENER ---
     def run_ko_ut_vol_screener(self):
-        print("\n🔎 Running KO + UT + VOLUME SCREENER...")
         results = []
         for t, df in self.data_dict.items():
-            df = self._prepare_df(df)
-            if df is None: continue
-
-            last_idx = len(df) - 1
-            j_start = max(1, last_idx - Config.RECENT_BARS + 1)
-
-            for j in range(j_start, last_idx + 1):
-                c_ko = self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE)
-                c_ut = bool(df["UT_Buy"].iloc[j])
-                c_vol = True
-                if Config.USE_VOLUME_FILTER:
-                    c_vol = bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])
-
-                if c_ko and c_ut and c_vol:
-                    results.append(self._package_result(t, df, j))
-                    break
-
+            if (df := self._prepare_df(df)) is None: continue
+            for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
+                if self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE) and bool(df["UT_Buy"].iloc[j]) and (bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])):
+                    results.append(self._package_result(t, df, j)); break
         return self._finalize_and_sort(results)
 
-    # --- 4. AROON + PSAR SCREENER ---
     def run_aroon_psar_screener(self):
-        print("\n🔎 Running AROON + PSAR SCREENER...")
         results = []
         for t, df in self.data_dict.items():
-            df = self._prepare_df(df)
-            if df is None: continue
-
-            last_idx = len(df) - 1
-            j_start = max(1, last_idx - Config.RECENT_BARS + 1)
-
-            for j in range(j_start, last_idx + 1):
-                # Kriteria 1: Aroon Cross Up (Aroon Up memotong ke atas Aroon Down)
-                c_aroon = self.is_aroon_buys(df, j)
-
-                # Kriteria 2: PSAR sedang Bullish (titik berada di bawah harga)
-                # Gunakan require_fresh_crossover=True jika Anda ingin mencari SAAT INI titik berbalik
-                c_psar = self.is_psar_bullish(df, j, require_fresh_crossover=False)
-
-                c_vol = True
-                if Config.USE_VOLUME_FILTER:
-                    c_vol = bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])
-
-                if c_aroon and c_psar and c_vol:
-                    results.append(self._package_result(t, df, j))
-                    break
-
+            if (df := self._prepare_df(df)) is None: continue
+            for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
+                if self.is_aroon_buys(df, j) and self.is_psar_bullish(df, j, require_fresh_crossover=False) and (bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])):
+                    results.append(self._package_result(t, df, j)); break
         return self._finalize_and_sort(results)
 
-# ==============================================================================
-# REVISI FINAL: BACKTEST ENGINE (Sorted Output)
-# ==============================================================================
-class BacktestEngine(ScreenerEngine):
-    def _calculate_forward_returns(self, df, entry_idx, entry_price):
-        res = {}
-        for h in Config.HORIZONS:
-            exit_idx = entry_idx + h
-            if exit_idx < len(df):
-                exit_price = df["Close"].iloc[exit_idx]
-                pct = (exit_price - entry_price) / entry_price * 100
-                res[f"Ret_{h}d"] = round(pct, 2)
-            else:
-                res[f"Ret_{h}d"] = np.nan
-        return res
 
-    def _generic_backtest_loop(self, signal_check_func, title):
-        print(f"\n🧪 Backtesting: {title}")
-        trades = []
-
-        for t, df in self.data_dict.items():
-            df = self._prepare_df(df)
-            if df is None: continue
-
-            last_idx = len(df) - 1
-            start_scan = max(1, last_idx - Config.BACKTEST_WINDOW)
-
-            for j in range(start_scan, last_idx):
-                if signal_check_func(df, j):
-                    entry_price = df["Close"].iloc[j]
-                    row_data = {
-                        "Ticker": t,
-                        "Signal_Date": df.index[j].date(),
-                        "Entry_Price": entry_price
-                    }
-                    returns = self._calculate_forward_returns(df, j, entry_price)
-                    row_data.update(returns)
-                    trades.append(row_data)
-
-        df_trades = pd.DataFrame(trades)
-
-        # SORTING BACKTEST TRADES LIST (NEWEST FIRST)
-        if not df_trades.empty:
-            df_trades = df_trades.sort_values(by="Signal_Date", ascending=False).reset_index(drop=True)
-
-        return df_trades
-
-    def summarize_backtest(self, df_trades):
-        if df_trades.empty:
-            print("   (No trades found)")
-            return
-
-        print("\n📊 BACKTEST SUMMARY")
-        summary = []
-        for h in Config.HORIZONS:
-            col = f"Ret_{h}d"
-            if col in df_trades.columns:
-                valid_trades = df_trades.dropna(subset=[col])
-                if valid_trades.empty: continue
-
-                win_rate = (valid_trades[col] > 0).mean() * 100
-                avg_ret = valid_trades[col].mean()
-
-                summary.append({
-                    "Horizon": f"{h} Days",
-                    "Win Rate": f"{win_rate:.1f}%",
-                    "Avg Return": f"{avg_ret:.2f}%",
-                    "Trades": len(valid_trades)
-                })
-
-        df_sum = pd.DataFrame(summary)
-        print(df_sum.to_string(index=False))
-
-    # (Method backtest_super, backtest_aroon_ut, dll SAMA SEPERTI SEBELUMNYA)
-    def backtest_super(self):
-        def check(df, j):
-            c_aroon = self.is_aroon_buys(df, j)
-            c_ko = self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE)
-            c_macd = self.is_macd_bullish(df, j, Config.REQUIRE_HIST_RISING)
-            c_ut_trend = (df["UT_Pos"].iloc[j] == 1) # Consistency check
-            c_vol = True
-            if Config.USE_VOLUME_FILTER:
-                c_vol = bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])
-            return c_aroon and c_ko and c_macd and c_ut_trend and c_vol
-
-        df_trades = self._generic_backtest_loop(check, "Super Screener")
-        self.summarize_backtest(df_trades)
-        return df_trades
-
-    def backtest_aroon_ut(self):
-        def check(df, j):
-            return self.is_aroon_buys(df, j) and bool(df["UT_Buy"].iloc[j])
-        df_trades = self._generic_backtest_loop(check, "Aroon + UT")
-        self.summarize_backtest(df_trades)
-        return df_trades
-
-    def backtest_ko_ut_vol(self):
-        def check(df, j):
-            c_ko = self.is_ko_bullish(df, j, Config.REQUIRE_KO_POSITIVE)
-            c_ut = bool(df["UT_Buy"].iloc[j])
-            c_vol = True
-            if Config.USE_VOLUME_FILTER:
-                c_vol = bool(df["Volume_OK"].iloc[j]) and bool(df["Volume_Confirm"].iloc[j])
-            return c_ko and c_ut and c_vol
-
-        df_trades = self._generic_backtest_loop(check, "KO + UT + Volume")
-        self.summarize_backtest(df_trades)
-        return df_trades
-
-# ==============================================================================
-# MAIN EXECUTION (DENGAN OUTPUT TABEL RAPI)
-# ==============================================================================
-def print_pretty(df, title=""):
-    """
-    Fungsi helper untuk mencetak DataFrame menjadi tabel cantik
-    menggunakan library 'tabulate'.
-    """
-    if title:
-        print(f"\n{'='*len(title)}")
-        print(f"{title}")
-        print(f"{'='*len(title)}")
-
-    if df.empty:
-        print(">> Tidak ada hasil (No Results).")
-        return
-
-    # Kita convert ke string dulu agar tampilan tanggal rapi
-    df_print = df.copy()
-
-    # Format angka float agar tidak terlalu panjang (misal KO)
-    # Kolom harga (Open, Close) biarkan integer
-    for col in df_print.columns:
-        if df_print[col].dtype == 'float64':
-            df_print[col] = df_print[col].apply(lambda x: f"{x:.2f}")
-
-    # Cetak tabel dengan format 'psql' (seperti database SQL) atau 'fancy_grid'
-    print(tabulate(df_print, headers='keys', tablefmt='psql', showindex=False))
-
-# ==============================================================================
-# FUNGSI TAMBAHAN: MENGAMBIL DATA FUNDAMENTAL (PER & PBV)
-# ==============================================================================
 def add_fundamentals(df):
-    if df is None or df.empty:
-        return df
-    
-    print(f"⏳ Mengambil data PER & PBV untuk {len(df)} saham terpilih...")
-    pers = []
-    pbvs = []
-    
+    if df is None or df.empty: return df
+    print(f"⏳ Mengambil fundamental untuk {len(df)} saham (menggunakan jeda waktu anti-blokir)...")
+    pers, pbvs = [], []
     for t in df["Ticker"]:
         try:
+            time.sleep(0.5) # JEDA WAKTU DITAMBAHKAN
             info = yf.Ticker(t).info
-            # Ambil trailing PE (jika kosong, coba forward PE)
             per = info.get('trailingPE') or info.get('forwardPE', 'N/A')
             pbv = info.get('priceToBook', 'N/A')
-            
             pers.append(round(per, 2) if isinstance(per, (int, float)) else per)
             pbvs.append(round(pbv, 2) if isinstance(pbv, (int, float)) else pbv)
-        except Exception as e:
-            pers.append('N/A')
-            pbvs.append('N/A')
-            
+        except Exception:
+            pers.append('N/A'); pbvs.append('N/A')
     df_copy = df.copy()
-    df_copy["PER"] = pers
-    df_copy["PBV"] = pbvs
+    df_copy["PER"], df_copy["PBV"] = pers, pbvs
     return df_copy
 
-import json
-import os
-import glob
-from datetime import datetime
+
+def send_telegram_message(data_dict, date_str):
+    bot_token = os.environ.get('8550087542:AAEgN7GcCvAaQSWjwcS-oPTk4SSP1ojHq0E')
+    chat_id = os.environ.get('748021918')
+    if not bot_token or not chat_id:
+        print("⚠️ Token/Chat ID Telegram tidak ada. Melewati pengiriman pesan.")
+        return
+
+    def get_tickers(lst): return ", ".join([item["Ticker"] for item in lst]) if lst else "Tidak ada"
+
+    msg = f"<b>🚀 Hasil Screener Saham IDX - {date_str}</b>\n\n"
+    msg += f"<b>🏆 Super Screener:</b>\n{get_tickers(data_dict['super_screener'])}\n\n"
+    msg += f"<b>🎯 Aroon + UT:</b>\n{get_tickers(data_dict['aroon_ut'])}\n\n"
+    msg += f"<b>🔥 KO + UT + Vol:</b>\n{get_tickers(data_dict['ko_ut_vol'])}\n\n"
+    msg += f"<b>⚡ Aroon + PSAR:</b>\n{get_tickers(data_dict['aroon_psar'])}\n\n"
+    msg += f"<a href='https://badrut25.github.io/idx-screener-v1/'>Buka Dashboard Web</a>"
+
+    try:
+        res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", data={"chat_id": chat_id, "text": msg, "parse_mode": "HTML", "disable_web_page_preview": True})
+        print("✅ Pesan Telegram berhasil dikirim!" if res.status_code == 200 else f"❌ Gagal Telegram: {res.text}")
+    except Exception as e:
+        print(f"❌ Error Telegram: {e}")
+
 
 if __name__ == "__main__":
-    # 1. Download Data
     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
     data_storage = fetcher.fetch()
-
-    # 2. Setup Engines
     screener = ScreenerEngine(data_storage)
 
-    # # 3. Jalankan Screener
-    # res_super = screener.run_super_screener()
-    # res_aroon_ut = screener.run_aroon_ut_screener()
-    # res_ko_ut = screener.run_ko_ut_vol_screener()
-    # res_aroon_psar = screener.run_aroon_psar_screener()
-    # 3. Jalankan Screener & Ambil Fundamentalnya
     res_super = add_fundamentals(screener.run_super_screener())
     res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
     res_ko_ut = add_fundamentals(screener.run_ko_ut_vol_screener())
     res_aroon_psar = add_fundamentals(screener.run_aroon_psar_screener())
 
-    # 4. Siapkan folder docs (wajib untuk GitHub Pages)
-    import os
-    import glob
     os.makedirs('docs', exist_ok=True)
 
-    # Dapatkan format tanggal hari ini (contoh: 2023-10-27)
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S WIB")
+    # KUNCI ZONA WAKTU WIB (Menghindari bias server GitHub UTC)
+    wib_tz = timezone(timedelta(hours=7))
+    now_wib = datetime.now(wib_tz)
+    today_str = now_wib.strftime("%Y-%m-%d")
+    timestamp_str = now_wib.strftime("%Y-%m-%d %H:%M:%S WIB")
 
-    # 5. Gabungkan data
     export_data = {
         "last_update": timestamp_str,
         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
@@ -811,31 +428,14 @@ if __name__ == "__main__":
         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
     }
 
-    # 6. Simpan file KHUSUS untuk tanggal hari ini
-    import json
-    filename_today = f'docs/data_{today_str}.json'
-    with open(filename_today, 'w') as f:
-        json.dump(export_data, f, default=str)
+    with open(f'docs/data_{today_str}.json', 'w') as f: json.dump(export_data, f, default=str)
+    with open('docs/data.json', 'w') as f: json.dump(export_data, f, default=str)
 
-    # 7. Tetap simpan data.json sebagai default (data terbaru)
-    with open('docs/data.json', 'w') as f:
-        json.dump(export_data, f, default=str)
-
-    # 8. BACA SEMUA HISTORY YANG ADA DI FOLDER DOCS
     history_files = glob.glob('docs/data_*.json')
-    available_dates = []
-    
-    for file in history_files:
-        base_name = os.path.basename(file)
-        date_part = base_name.replace('data_', '').replace('.json', '')
-        available_dates.append(date_part)
-
-    # Urutkan tanggal dari yang terbaru ke terlama
+    available_dates = [os.path.basename(f).replace('data_', '').replace('.json', '') for f in history_files]
     available_dates.sort(reverse=True)
 
-    # 9. Simpan daftar tanggal ke history_list.json
-    with open('docs/history_list.json', 'w') as f:
-        json.dump(available_dates, f)
+    with open('docs/history_list.json', 'w') as f: json.dump(available_dates, f)
         
     print(f"✅ Data tanggal {today_str} berhasil diekspor!")
-    print(f"📚 Total history tersimpan: {len(available_dates)} hari.")
+    send_telegram_message(export_data, today_str)
