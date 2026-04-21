@@ -401,7 +401,6 @@ def send_telegram_message(data_dict, date_str):
     except Exception as e:
         print(f"❌ Error Telegram: {e}")
 
-
 if __name__ == "__main__":
     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
     data_storage = fetcher.fetch()
@@ -414,11 +413,22 @@ if __name__ == "__main__":
 
     os.makedirs('docs', exist_ok=True)
 
-    # KUNCI ZONA WAKTU WIB (Menghindari bias server GitHub UTC)
+    # =====================================================================
+    # PERBAIKAN LOGIKA TANGGAL: Ambil dari Data Market, BUKAN Jam Server
+    # =====================================================================
+    # 1. Cari tanggal terakhir dari data saham yang berhasil di-download
+    last_dates = [df.index[-1] for df in data_storage.values() if not df.empty]
+    if last_dates:
+        market_date = max(last_dates)
+        today_str = market_date.strftime("%Y-%m-%d")
+    else:
+        wib_tz = timezone(timedelta(hours=7))
+        today_str = datetime.now(wib_tz).strftime("%Y-%m-%d")
+
+    # 2. Waktu update terakhir (tulisan di web) tetap pakai jam saat robot jalan
     wib_tz = timezone(timedelta(hours=7))
-    now_wib = datetime.now(wib_tz)
-    today_str = now_wib.strftime("%Y-%m-%d")
-    timestamp_str = now_wib.strftime("%Y-%m-%d %H:%M:%S WIB")
+    timestamp_str = datetime.now(wib_tz).strftime("%Y-%m-%d %H:%M:%S WIB")
+    # =====================================================================
 
     export_data = {
         "last_update": timestamp_str,
@@ -428,14 +438,56 @@ if __name__ == "__main__":
         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
     }
 
+    # Simpan file menggunakan tanggal market yang AKURAT
     with open(f'docs/data_{today_str}.json', 'w') as f: json.dump(export_data, f, default=str)
     with open('docs/data.json', 'w') as f: json.dump(export_data, f, default=str)
 
     history_files = glob.glob('docs/data_*.json')
     available_dates = [os.path.basename(f).replace('data_', '').replace('.json', '') for f in history_files]
+    
+    # Hapus duplikat dan urutkan
+    available_dates = list(set(available_dates))
     available_dates.sort(reverse=True)
 
     with open('docs/history_list.json', 'w') as f: json.dump(available_dates, f)
         
-    print(f"✅ Data tanggal {today_str} berhasil diekspor!")
+    print(f"✅ Data market tanggal {today_str} berhasil diekspor!")
     send_telegram_message(export_data, today_str)
+
+# if __name__ == "__main__":
+#     fetcher = StockDataFetcher(Config.TICKERS, Config.MARKET_SUFFIX, Config.LOOKBACK_DAYS_HISTORY)
+#     data_storage = fetcher.fetch()
+#     screener = ScreenerEngine(data_storage)
+
+#     res_super = add_fundamentals(screener.run_super_screener())
+#     res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
+#     res_ko_ut = add_fundamentals(screener.run_ko_ut_vol_screener())
+#     res_aroon_psar = add_fundamentals(screener.run_aroon_psar_screener())
+
+#     os.makedirs('docs', exist_ok=True)
+
+#     # KUNCI ZONA WAKTU WIB (Menghindari bias server GitHub UTC)
+#     wib_tz = timezone(timedelta(hours=7))
+#     now_wib = datetime.now(wib_tz)
+#     today_str = now_wib.strftime("%Y-%m-%d")
+#     timestamp_str = now_wib.strftime("%Y-%m-%d %H:%M:%S WIB")
+
+#     export_data = {
+#         "last_update": timestamp_str,
+#         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
+#         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
+#         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
+#         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
+#     }
+
+#     with open(f'docs/data_{today_str}.json', 'w') as f: json.dump(export_data, f, default=str)
+#     with open('docs/data.json', 'w') as f: json.dump(export_data, f, default=str)
+
+#     history_files = glob.glob('docs/data_*.json')
+#     available_dates = [os.path.basename(f).replace('data_', '').replace('.json', '') for f in history_files]
+#     available_dates.sort(reverse=True)
+
+#     with open('docs/history_list.json', 'w') as f: json.dump(available_dates, f)
+        
+#     print(f"✅ Data tanggal {today_str} berhasil diekspor!")
+#     send_telegram_message(export_data, today_str)
