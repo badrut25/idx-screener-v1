@@ -380,8 +380,8 @@ def add_fundamentals(df):
 
 
 def send_telegram_message(data_dict, date_str):
-    bot_token = os.environ.get('8550087542:AAEgN7GcCvAaQSWjwcS-oPTk4SSP1ojHq0E')
-    chat_id = os.environ.get('748021918')
+    bot_token = os.environ.get('lilili')
+    chat_id = os.environ.get('lalala')
     if not bot_token or not chat_id:
         print("⚠️ Token/Chat ID Telegram tidak ada. Melewati pengiriman pesan.")
         return
