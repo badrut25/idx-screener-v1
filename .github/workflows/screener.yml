@@ -2,7 +2,7 @@ name: Update Stock Data
 
 on:
   schedule:
-    # Jalan otomatis setiap hari Senin - Jumat jam 10:00 UTC (17:00 WIB)
+    # Jalan otomatis setiap hari Senin - Jumat jam 12:00 UTC (19:00 WIB)
     - cron: '0 10 * * 1-5'
   workflow_dispatch: # Tombol manual untuk testing
 
@@ -23,6 +23,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Screener Python Script
+        # Mengambil kunci brankas untuk Bot Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python screener.py
 
@@ -30,6 +34,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add docs/data.json
+          # PERBAIKAN: Menyimpan seluruh folder docs, bukan cuma 1 file
+          git add docs/
           git commit -m "Automated update: new stock data [skip ci]" || echo "No changes to commit"
           git push origin main
