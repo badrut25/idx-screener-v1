@@ -3,6 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Screener Saham IDX</title>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: none; }
+        h1 { text-align: center; color: #2c3e50; }
+        h2 { color: #2980b9; border-bottom: 2px solid #3498db; padding-bottom: 5px; margin-top: 30px;}
+        .update-time { text-align: center; font-style: italic; color: #7f8c8d; margin-bottom: 20px; }
+        
+        .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #ecf0f1; padding: 15px; border-radius: 8px; }
+        .date-picker { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #bdc3c7; }
+        
+        .table-wrapper { overflow-x: auto; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #34495e; color: white; position: sticky; top: 0; }
+        tr:hover { background-color: #f1f1f1; }
+        .buy { background-color: #e8f8f5; font-weight: bold; }
+        .buy td:nth-child(3) { color: #27ae60; }
+        
+        /* Tombol Link Ticker */
+        .ticker-link { color: #2980b9; cursor: pointer; text-decoration: underline; font-weight: bold; margin-right: 10px; }
+        .ticker-link:hover { color: #1abc9c; }
+        .tv-link { text-decoration: none; font-size: 18px; }
+
+        /* Style Modal Quick Chart */
+        #chartModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 1000px; height: 80vh; position: relative; display: flex; flex-direction: column; }
+        .close-btn { color: #aaa; position: absolute; right: 20px; top: 10px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover, .close-btn:focus { color: #d35400; text-decoration: none; }
+        #tv_chart_container { flex-grow: 1; width: 100%; margin-top: 15px; }
+
+        /* Halaman Login */
+        #login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }
+        #login-container input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 5px; }
+        #login-container button { width: 95%; padding: 10px; background-color: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        #login-container button:hover { background-color: #3498db; }
+        #error-msg { color: #e74c3c; display: none; margin-top: 10px; font-size: 14px; }
+        .logout-btn { background-color: #e74c3c; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; }
+        .logout-btn:hover { background-color: #c0392b; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <h2>🔒 Area Terbatas</h2>
+        <input type="text" id="username" placeholder="Username" autocomplete="off">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="checkLogin()">Masuk</button>
+        <div id="error-msg">Username atau Password salah!</div>
+    </div>
+
+    <div id="dashboard-container" class="container">
+        <h1>🚀 Dashboard Screener Saham IDX</h1>
+        
+        <div class="header-controls">
+            <div>
+                <label for="historyDate" style="font-weight: bold;">Pilih Tanggal: </label>
+                <select id="historyDate" class="date-picker" onchange="loadSpecificDate(this.value)">
+                    <option value="latest">Memuat tanggal...</option>
+                </select>
+            </div>
+            <button class="logout-btn" onclick="logout()">Keluar</button>
+        </div>
+        <div class="update-time">Terakhir Diperbarui: <span id="last_update">Memuat data...</span></div>
+
+        <div class="table-wrapper">
+            <h2>🏆 Super Screener</h2>
+            <table id="superTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="table-wrapper">
+            <h2>🤖 ML Lorentzian Classification</h2>
+            <table id="lorentzianTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>🎯 Aroon + UT Screener</h2>
+            <table id="aroonUtTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="table-wrapper">
+            <h2>🔥 KO + UT + Volume Screener</h2>
+            <table id="koUtVolTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="table-wrapper">
+            <h2>⚡ Aroon + PSAR Screener</h2>
+            <table id="aroonPsarTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="chartModal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeChart()">&times;</span>
+            <h3 id="modalTitle" style="margin: 0; color: #2c3e50;">Quick Chart</h3>
+            <div id="tv_chart_container"></div>
+        </div>
+    </div>
+
+    <script>
+        const VALID_USERNAME = "admin";
+        const VALID_PASSWORD = "password123";
+
+        window.onload = function() {
+            if (sessionStorage.getItem("isLoggedIn") === "true") {
+                showDashboard();
+            }
+        };
+
+        function checkLogin() {
+            const user = document.getElementById("username").value;
+            const pass = document.getElementById("password").value;
+            if (user === VALID_USERNAME && pass === VALID_PASSWORD) {
+                sessionStorage.setItem("isLoggedIn", "true");
+                document.getElementById("error-msg").style.display = "none";
+                showDashboard();
+            } else {
+                document.getElementById("error-msg").style.display = "block";
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem("isLoggedIn");
+            location.reload();
+        }
+
+        function showDashboard() {
+            document.getElementById("login-container").style.display = "none";
+            document.getElementById("dashboard-container").style.display = "block";
+            fetchHistoryList();
+        }
+
+        function formatVolume(vol) {
+            if (!vol) return '-';
+            if (vol >= 1000000000) return (vol / 1000000000).toFixed(2) + ' Milyar';
+            if (vol >= 1000000) return (vol / 1000000).toFixed(2) + ' Juta';
+            return vol.toLocaleString('id-ID');
+        }
+
+        // FUNGSI RENDER TABEL (SUDAH DIUPDATE 11 KOLOM)
+        function renderTable(dataArray, tableId, isPsar = false) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            tbody.innerHTML = ''; 
+            
+            if(!dataArray || dataArray.length === 0) {
+                // Menjadi colspan 11
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Tidak ada saham yang masuk kriteria.</td></tr>';
+                return;
+            }
+
+            dataArray.forEach(row => {
+                const tr = document.createElement('tr');
+                if(row.Pattern_Label === 'RUNNER' || row.Pattern_Label === 'POP_CEPAT') { 
+                    tr.classList.add('buy'); 
+                }
+                
+                let trendColumn = isPsar ? (row.PSAR_Trend === 'Bull' ? '📈 Bull' : '📉 Bear') : (row.ST_Trend === 1 ? '📈 Bull' : '📉 Bear');
+                
+                const volFormatted = formatVolume(row.Volume);
+                const perVal = row.PER !== undefined ? row.PER : '-';
+                const pbvVal = row.PBV !== undefined ? row.PBV : '-';
+                
+                // Variabel baru untuk semua tabel
+                const volSpike = row.Volume_Spike ? '✅ Ya' : '❌ Tidak';
+                const kernelColor = row.Kernel_Color || '-';
+
+                tr.innerHTML = `
+                    <td>
+                        <span class="ticker-link" onclick="openChart('${row.Ticker}')" title="Klik untuk Quick Chart">${row.Ticker}</span>
+                        <a href="https://www.tradingview.com/chart/?symbol=IDX:${row.Ticker}" target="_blank" class="tv-link" title="Buka Full TradingView">📊</a>
+                    </td>
+                    <td>${row.Signal_Date}</td>
+                    <td>${row.Pattern_Label}</td>
+                    <td>Rp ${row.Close.toLocaleString('id-ID')}</td>
+                    <td>${row.Pct_Change_Price}%</td>
+                    <td>${volFormatted}</td>
+                    <td>${volSpike}</td>
+                    <td><b>${kernelColor}</b></td>
+                    <td>${perVal}</td>
+                    <td>${pbvVal}</td>
+                    <td>${trendColumn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        let widget = null;
+        function openChart(ticker) {
+            document.getElementById("chartModal").style.display = "block";
+            document.getElementById("modalTitle").innerText = `Quick Chart: ${ticker}`;
+            widget = new TradingView.widget({
+                "autosize": true,
+                "symbol": "IDX:" + ticker,
+                "interval": "D",
+                "timezone": "Asia/Jakarta",
+                "theme": "light",
+                "style": "1",
+                "locale": "id",
+                "enable_publishing": false,
+                "backgroundColor": "#ffffff",
+                "gridColor": "#f1f3f6",
+                "hide_top_toolbar": false,
+                "save_image": false,
+                "container_id": "tv_chart_container",
+                "studies": ["Aroon@tv-basicstudies", "MACD@tv-basicstudies", "Stochastic@tv-basicstudies", "BollingerBands@tv-basicstudies"]
+                // 📈 Indikator Tren (Trend)
+                // Simple Moving Average (SMA): "MASimple@tv-basicstudies"
+                // Exponential Moving Average (EMA): "MAExp@tv-basicstudies"
+                // Weighted Moving Average (WMA): "MAWeighted@tv-basicstudies"
+                // Parabolic SAR (PSAR): "PSAR@tv-basicstudies" (Cocok dengan salah satu screener kamu!)
+                // Ichimoku Cloud: "IchimokuCloud@tv-basicstudies"
+                // Aroon: "Aroon@tv-basicstudies" (Cocok dengan screener utama kamu!)
+                // Directional Movement (ADX): "DirectionalMovement@tv-basicstudies"
+                
+                // 🚀 Indikator Momentum (Oscillators)
+                // MACD: "MACD@tv-basicstudies"
+                // RSI (Relative Strength Index): "RSI@tv-basicstudies"
+                // Stochastic: "Stochastic@tv-basicstudies"
+                // Stochastic RSI: "StochasticRSI@tv-basicstudies"
+                // Awesome Oscillator: "AwesomeOscillator@tv-basicstudies"
+                // CCI (Commodity Channel Index): "CCI@tv-basicstudies"
+                // Momentum: "Momentum@tv-basicstudies"
+                // Williams %R: "WilliamsR@tv-basicstudies"
+                
+                // 📊 Indikator Volatilitas & Volume
+                // Volume: "Volume@tv-basicstudies"
+                // Bollinger Bands: "BollingerBands@tv-basicstudies"
+                // ATR (Average True Range): "ATR@tv-basicstudies"
+                // Donchian Channels: "DonchianChannels@tv-basicstudies"
+                // Keltner Channels: "KeltnerChannels@tv-basicstudies"
+            });
+        }
+
+        function closeChart() {
+            document.getElementById("chartModal").style.display = "none";
+            document.getElementById("tv_chart_container").innerHTML = '';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById("chartModal")) {
+                closeChart();
+            }
+        }
+
+        function fetchHistoryList() {
+            fetch('history_list.json')
+            .then(res => res.ok ? res.json() : [])
+            .then(dates => {
+                const select = document.getElementById('historyDate');
+                select.innerHTML = ''; 
+                if(dates.length === 0) {
+                    select.innerHTML = '<option value="latest">Hari Ini (Terbaru)</option>';
+                    loadScreenerData('data.json');
+                    return;
+                }
+                dates.forEach(d => {
+                    select.appendChild(new Option(d, d));
+                });
+                loadSpecificDate(dates[0]);
+            })
+            .catch(err => {
+                console.log("History list not found, loading latest data.");
+                loadScreenerData('data.json');
+            });
+        }
+
+        function loadSpecificDate(dateStr) {
+            if (dateStr === 'latest') {
+                loadScreenerData('data.json');
+            } else {
+                loadScreenerData(`data_${dateStr}.json`);
+            }
+        }
+
+        function loadScreenerData(filename) {
+            fetch(filename)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('last_update').innerText = data.last_update;
+                renderTable(data.super_screener, 'superTable');
+                renderTable(data.lorentzian_ml, 'lorentzianTable');
+                renderTable(data.aroon_ut, 'aroonUtTable');
+                renderTable(data.ko_ut_vol, 'koUtVolTable');
+                renderTable(data.aroon_psar, 'aroonPsarTable', true);
+            })
+            .catch(err => {
+                console.error("Gagal memuat data JSON:", err);
+                alert("Data JSON belum tersedia atau terjadi kesalahan saat memuat.");
+            });
+        }
+
+        // Login saat tekan enter
+        document.getElementById("password").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                checkLogin();
+            }
+        });
+    </script>
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDX OOP Screener</title>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <style>
@@ -243,4 +565,4 @@
         document.getElementById("password").addEventListener("keypress", e => { if(e.key === "Enter") checkLogin(); });
     </script>
 </body>
-</html>
+</html> -->
