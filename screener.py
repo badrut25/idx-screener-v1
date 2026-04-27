@@ -88,7 +88,7 @@ class Config:
     ]
     MARKET_SUFFIX = ".JK"
     LOOKBACK_DAYS_HISTORY = 400
-    RECENT_BARS = 1          
+    RECENT_BARS = 60         # Gunakan angka besar (misal 60) untuk backfill 
     
     BACKTEST_WINDOW = 60     
     HORIZONS = [3, 5, 10, 20]
@@ -251,40 +251,36 @@ class TechnicalIndicators:
         df["PSAR_Buy"] = (df["PSAR_Trend"] == 1) & (df["PSAR_Trend"].shift(1) == -1)
         return df
 
-    # === FITUR BARU: KERNEL REGRESSION (Red to Green) ===
+    # === FITUR KERNEL REGRESSION (PERSIS SEPERTI STANDALONE USER) ===
     @staticmethod
     def add_kernel_regression(df, h=8, r=8.0, x=25):
-        # Menghitung bobot Rational Quadratic Kernel
         weights = np.array([(1 + (i**2) / (2 * r * (h**2))) ** (-r) for i in range(x)])
         weights = weights / np.sum(weights)
         
-        # Convolve (Sliding Window) harga close dengan bobot kernel
         df['Kernel_yhat'] = df['Close'].rolling(window=x).apply(lambda vals: np.dot(vals[::-1], weights), raw=True)
         
-        # Logika Warna Garis
-        # Hijau jika harga regresi saat ini lebih tinggi dari kemarin
-        df['Kernel_Is_Green'] = df['Kernel_yhat'] > df['Kernel_yhat'].shift(1)
+        df['Is_Bullish_Rate'] = df['Kernel_yhat'] > df['Kernel_yhat'].shift(1)
+        df['Is_Bearish_Rate'] = df['Kernel_yhat'] < df['Kernel_yhat'].shift(1)
         
-        # Logika Flip (Red to Green) -> isBullishChange di PineScript
-        # Terjadi saat ini HIJAU, tapi kemarin MERAH
-        df['Kernel_Red_to_Green'] = df['Kernel_Is_Green'] & (~df['Kernel_Is_Green'].shift(1).fillna(False))
+        # Logika trigger mutlak: Hari ini Bullish, Kemarin Bearish
+        df['Kernel_Red_to_Green'] = df['Is_Bullish_Rate'] & df['Is_Bearish_Rate'].shift(1)
+        
+        # Warna khusus tabel
+        df['Kernel_Color'] = np.where(df['Is_Bullish_Rate'], '🟢 Hijau', '🔴 Merah')
         return df
 
     @staticmethod
     def add_lorentzian_features(df):
-        # Feature 1: RSI (14)
         delta = df['Close'].diff()
         gain = delta.clip(lower=0).rolling(14).mean()
         loss = -delta.clip(upper=0).rolling(14).mean()
         df['F_RSI'] = 100 - (100 / (1 + (gain / loss)))
 
-        # Feature 2: CCI (20)
         tp = (df['High'] + df['Low'] + df['Close']) / 3
         sma_tp = tp.rolling(20).mean()
         mad = tp.rolling(20).apply(lambda x: np.abs(x - x.mean()).mean(), raw=False)
         df['F_CCI'] = (tp - sma_tp) / (0.015 * mad)
 
-        # Feature 3: ADX (14)
         tr = TechnicalIndicators.compute_true_range(df)
         atr = tr.rolling(14).mean()
         up_move = df['High'].diff()
@@ -296,7 +292,6 @@ class TechnicalIndicators:
         dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
         df['F_ADX'] = dx.rolling(14).mean()
 
-        # Feature 4: WaveTrend (WT)
         esa = tp.ewm(span=10, adjust=False).mean()
         d = np.abs(tp - esa).ewm(span=10, adjust=False).mean()
         ci = (tp - esa) / (0.015 * d)
@@ -334,7 +329,7 @@ class SignalLogic:
         return bool(df["PSAR_Buy"].iloc[j]) if require_fresh_crossover else df["PSAR_Trend"].iloc[j] == 1
 
     def is_lorentzian_bullish(self, df, j, neighbors=8):
-        if j < 50: return False
+        if j < 50: return 0
         f_curr = df[['F_RSI', 'F_CCI', 'F_ADX', 'F_WT']].iloc[j].values
         start_idx = max(4, j - 400)
         hist_features = df[['F_RSI', 'F_CCI', 'F_ADX', 'F_WT']].iloc[start_idx:j-4].values
@@ -342,12 +337,12 @@ class SignalLogic:
         hist_features = hist_features[::-1][::4]
         hist_labels = hist_labels[::-1][::4]
         
-        if len(hist_labels) < neighbors: return False
+        if len(hist_labels) < neighbors: return 0
         diff = np.abs(hist_features - f_curr)
         distances = np.sum(np.log(1 + diff), axis=1)
         top_indices = np.argsort(distances)[:neighbors]
         prediction = np.sum(hist_labels[top_indices])
-        return prediction > 0
+        return prediction
 
 class ScreenerEngine(SignalLogic):
     def __init__(self, data_dict): self.data_dict = data_dict
@@ -361,8 +356,8 @@ class ScreenerEngine(SignalLogic):
         df = TechnicalIndicators.add_ut_bot(df, Config.UT_A, Config.UT_C)
         df = TechnicalIndicators.add_supertrend(df, Config.ST_PERIOD, Config.ST_MULT)
         df = TechnicalIndicators.add_psar(df, Config.PSAR_START, Config.PSAR_INC, Config.PSAR_MAX)
-        df = TechnicalIndicators.add_kernel_regression(df)   # Tambahan Kernel Regresi
-        df = TechnicalIndicators.add_lorentzian_features(df) # Tambahan Fitur ML
+        df = TechnicalIndicators.add_kernel_regression(df)
+        df = TechnicalIndicators.add_lorentzian_features(df)
         df.dropna(inplace=True)
         return df
 
@@ -381,8 +376,7 @@ class ScreenerEngine(SignalLogic):
             "KO": round(row["KO"], 2), "UT_Buy": bool(row["UT_Buy"]), "ST_Trend": int(row["ST_Trend"]),
             "Aroon_Up": round(row["Aroon_Up"], 1), "UT_Pos": int(row["UT_Pos"]),
             "PSAR_Trend": "Bull" if row["PSAR_Trend"] == 1 else "Bear",
-            # Menangkap warna Kernel untuk ditampilkan di Web
-            "Kernel_Color": "🟢 Hijau" if row.get("Kernel_Is_Green", False) else "🔴 Merah",
+            "Kernel_Color": row.get("Kernel_Color", "-"),
             "Kernel_Flip": "✅ Ya" if row.get("Kernel_Red_to_Green", False) else "❌ Tidak"
         }
         res["Pattern_Label"] = self.classify_pattern(res)
@@ -428,31 +422,31 @@ class ScreenerEngine(SignalLogic):
                     results.append(self._package_result(t, df, j)); break
         return self._finalize_and_sort(results)
 
-    # === UPDATE SYARAT MACHINE LEARNING ===
+    # === UPDATE: LORENTZIAN SCREENER LOGIC (MATCH STANDALONE) ===
     def run_lorentzian_ml_screener(self):
-        print("\n🔎 Running ML LORENTZIAN SCREENER (Strict Kernel Flip)...")
+        print("\n🔎 Running KERNEL LORENTZIAN SCREENER (Red-to-Green Only)...")
         results = []
         for t, df in self.data_dict.items():
             if (df := self._prepare_df(df)) is None: continue
             for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
                 
-                # Syarat 1: ML Model Mendeteksi Flag Bullish (Prediksi Naik)
-                c_ml = self.is_lorentzian_bullish(df, j, neighbors=8)
+                # TRIGGER UTAMA: Saham masuk jika garis mematah dari Merah ke Hijau
+                c_kernel_flip = bool(df['Kernel_Red_to_Green'].iloc[j])
                 
-                # Syarat 2: Terjadi perubahan Kernel dari MERAH ke HIJAU (isBullishChange)
-                # Diberikan toleransi 1 bar ke belakang agar selaras jika flag ML muncul H+1
-                c_kernel_flip = bool(df['Kernel_Red_to_Green'].iloc[j]) or bool(df['Kernel_Red_to_Green'].iloc[j-1])
-                
-                # Syarat 3: Pastikan garis Kernel saat ini MASIH HIJAU
-                c_kernel_green = bool(df['Kernel_Is_Green'].iloc[j])
-
-                # Syarat 4: Filter Volume Standar
+                # Syarat Volume (Opsional, tapi penting agar saham tidak ilikuid)
                 c_vol = bool(df["Volume_OK"].iloc[j])
 
-                # JIKA SEMUANYA TERPENUHI, MASUKKAN KE TABEL!
-                if c_ml and c_kernel_flip and c_kernel_green and c_vol:
-                    results.append(self._package_result(t, df, j))
-                    break
+                if c_kernel_flip and c_vol:
+                    # Ambil prediksi ML sebagai tambahan informasi di kolom
+                    ml_score = self.is_lorentzian_bullish(df, j, neighbors=8)
+                    
+                    res = self._package_result(t, df, j)
+                    
+                    # Ubah label Pattern untuk menegaskan alasan masuk tabel ini
+                    res["Pattern_Label"] = f"🟢 KERNEL FLIP (ML Score: {ml_score})"
+                    
+                    results.append(res)
+                    break # Lanjut ke ticker berikutnya agar tidak dobel
         return self._finalize_and_sort(results)
 
 def add_fundamentals(df):
@@ -483,8 +477,8 @@ def send_telegram_message(data_dict, date_str):
     def get_tickers(lst): return ", ".join([item["Ticker"] for item in lst]) if lst else "Tidak ada"
 
     msg = f"<b>🚀 Hasil Screener Saham IDX - {date_str}</b>\n\n"
-    msg += f"<b>🏆 Super Screener:</b>\n{get_tickers(data_dict['super_screener'])}\n\n"
     msg += f"<b>🤖 ML Lorentzian (Red-to-Green):</b>\n{get_tickers(data_dict['lorentzian_ml'])}\n\n"
+    msg += f"<b>🏆 Super Screener:</b>\n{get_tickers(data_dict['super_screener'])}\n\n"
     msg += f"<b>🎯 Aroon + UT:</b>\n{get_tickers(data_dict['aroon_ut'])}\n\n"
     msg += f"<b>🔥 KO + UT + Vol:</b>\n{get_tickers(data_dict['ko_ut_vol'])}\n\n"
     msg += f"<b>⚡ Aroon + PSAR:</b>\n{get_tickers(data_dict['aroon_psar'])}\n\n"
@@ -501,17 +495,16 @@ if __name__ == "__main__":
     data_storage = fetcher.fetch()
     screener = ScreenerEngine(data_storage)
 
+    # JALANKAN SCREENER MACHINE LEARNING
+    res_lorentzian = add_fundamentals(screener.run_lorentzian_ml_screener())
+
     res_super = add_fundamentals(screener.run_super_screener())
     res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
     res_ko_ut = add_fundamentals(screener.run_ko_ut_vol_screener())
     res_aroon_psar = add_fundamentals(screener.run_aroon_psar_screener())
     
-    # JALANKAN SCREENER MACHINE LEARNING
-    res_lorentzian = add_fundamentals(screener.run_lorentzian_ml_screener())
-
     os.makedirs('docs', exist_ok=True)
 
-    # PERBAIKAN LOGIKA TANGGAL
     last_dates = [df.index[-1] for df in data_storage.values() if not df.empty]
     if last_dates:
         market_date = max(last_dates)
@@ -525,8 +518,8 @@ if __name__ == "__main__":
 
     export_data = {
         "last_update": timestamp_str,
-        "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
         "lorentzian_ml": res_lorentzian.to_dict(orient="records") if not res_lorentzian.empty else [],
+        "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
         "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
@@ -544,7 +537,7 @@ if __name__ == "__main__":
         
     print(f"✅ Data market tanggal {today_str} berhasil diekspor!")
     send_telegram_message(export_data, today_str)
-
+    
 # # @title OOP Complete Suite: 3 Screeners + 3 Backtesters + Telegram + WIB Timezone
 # import numpy as np
 # import pandas as pd
