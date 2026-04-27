@@ -88,7 +88,7 @@ class Config:
     ]
     MARKET_SUFFIX = ".JK"
     LOOKBACK_DAYS_HISTORY = 400
-    RECENT_BARS = 60         # Gunakan angka besar (misal 60) untuk backfill 
+    RECENT_BARS = 1         # Gunakan angka besar (misal 60) untuk backfill 
     
     BACKTEST_WINDOW = 60     
     HORIZONS = [3, 5, 10, 20]
