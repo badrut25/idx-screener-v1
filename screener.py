@@ -88,7 +88,7 @@ class Config:
     ]
     MARKET_SUFFIX = ".JK"
     LOOKBACK_DAYS_HISTORY = 400
-    RECENT_BARS = 2          
+    RECENT_BARS = 1          
     
     BACKTEST_WINDOW = 60     
     HORIZONS = [3, 5, 10, 20]
