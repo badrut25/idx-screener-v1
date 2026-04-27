@@ -78,14 +78,6 @@
         </div>
         
         <div class="table-wrapper">
-            <h2>🤖 ML Lorentzian Classification</h2>
-            <table id="lorentzianTable">
-                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="table-wrapper">
             <h2>🎯 Aroon + UT Screener</h2>
             <table id="aroonUtTable">
                 <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
@@ -108,8 +100,24 @@
                 <tbody></tbody>
             </table>
         </div>
-    </div>
 
+        <div class="table-wrapper">
+            <h2>🟢 ML Lorentzian (BULLISH FLIP)</h2>
+            <table id="lorentzianBullTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>🔴 ML Lorentzian (BEARISH FLIP / WARNING SELL)</h2>
+            <table id="lorentzianBearTable">
+                <thead><tr><th>Ticker</th><th>Tanggal</th><th>Pola</th><th>Harga Close</th><th>% Ubah</th><th>Volume</th><th>Spike Vol?</th><th>Warna Kernel</th><th>PER</th><th>PBV</th><th>Trend</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    
     <div id="chartModal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeChart()">&times;</span>
@@ -298,11 +306,16 @@
             .then(res => res.json())
             .then(data => {
                 document.getElementById('last_update').innerText = data.last_update;
+                
+                // Render tabel-tabel utama
                 renderTable(data.super_screener, 'superTable');
-                renderTable(data.lorentzian_ml, 'lorentzianTable');
                 renderTable(data.aroon_ut, 'aroonUtTable');
                 renderTable(data.ko_ut_vol, 'koUtVolTable');
                 renderTable(data.aroon_psar, 'aroonPsarTable', true);
+                
+                // Render 2 tabel Lorentzian di bawah
+                renderTable(data.lorentzian_bull, 'lorentzianBullTable');
+                renderTable(data.lorentzian_bear, 'lorentzianBearTable');
             })
             .catch(err => {
                 console.error("Gagal memuat data JSON:", err);
