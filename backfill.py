@@ -43,8 +43,10 @@ if __name__ == "__main__":
         # Masukkan data masa lalu ke dalam mesin Screener
         screener = ScreenerEngine(sliced_data)
         
-        # === TAMBAHAN BARU: EKSEKUSI LORENTZIAN ===
-        res_lorentzian = add_fundamentals(screener.run_lorentzian_ml_screener())
+        # === EKSEKUSI LORENTZIAN BULL & BEAR ===
+        res_lor_bull, res_lor_bear = screener.run_lorentzian_ml_screener()
+        res_lor_bull = add_fundamentals(res_lor_bull)
+        res_lor_bear = add_fundamentals(res_lor_bear)
         
         res_super = add_fundamentals(screener.run_super_screener())
         res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
@@ -54,11 +56,12 @@ if __name__ == "__main__":
         # Bungkus hasilnya (Termasuk data Lorentzian)
         export_data = {
             "last_update": f"{target_date_str} 17:00:00 WIB (Backfilled)",
-            "lorentzian_ml": res_lorentzian.to_dict(orient="records") if not res_lorentzian.empty else [],
             "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
             "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
             "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
-            "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
+            "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else [],
+            "lorentzian_bull": res_lor_bull.to_dict(orient="records") if not res_lor_bull.empty else [],
+            "lorentzian_bear": res_lor_bear.to_dict(orient="records") if not res_lor_bear.empty else []
         }
 
         # Simpan ke JSON khusus tanggal tersebut
