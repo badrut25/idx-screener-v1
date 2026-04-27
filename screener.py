@@ -258,15 +258,14 @@ class TechnicalIndicators:
         weights = weights / np.sum(weights)
         
         df['Kernel_yhat'] = df['Close'].rolling(window=x).apply(lambda vals: np.dot(vals[::-1], weights), raw=True)
-        
         df['Is_Bullish_Rate'] = df['Kernel_yhat'] > df['Kernel_yhat'].shift(1)
         df['Is_Bearish_Rate'] = df['Kernel_yhat'] < df['Kernel_yhat'].shift(1)
         
-        # Logika trigger mutlak: Hari ini Bullish, Kemarin Bearish
+        # Deteksi dua jenis patahan (Bullish dan Bearish)
         df['Kernel_Red_to_Green'] = df['Is_Bullish_Rate'] & df['Is_Bearish_Rate'].shift(1)
+        df['Kernel_Green_to_Red'] = df['Is_Bearish_Rate'] & df['Is_Bullish_Rate'].shift(1)
         
-        # Warna khusus tabel
-        df['Kernel_Color'] = np.where(df['Is_Bullish_Rate'], '🟢 Hijau', '🔴 Merah')
+        df['Kernel_Color'] = np.where(df['Is_Bullish_Rate'], '🟢', '🔴')
         return df
 
     @staticmethod
@@ -424,31 +423,31 @@ class ScreenerEngine(SignalLogic):
 
     # === UPDATE: LORENTZIAN SCREENER LOGIC (MATCH STANDALONE) ===
     def run_lorentzian_ml_screener(self):
-        print("\n🔎 Running KERNEL LORENTZIAN SCREENER (Red-to-Green Only)...")
-        results = []
+        print("\n🔎 Running KERNEL LORENTZIAN SCREENER (Bullish & Bearish)...")
+        res_bull, res_bear = [], []
         for t, df in self.data_dict.items():
             if (df := self._prepare_df(df)) is None: continue
             for j in range(max(1, len(df) - Config.RECENT_BARS), len(df)):
-                
-                # TRIGGER UTAMA: Saham masuk jika garis mematah dari Merah ke Hijau
-                c_kernel_flip = bool(df['Kernel_Red_to_Green'].iloc[j])
-                
-                # Syarat Volume (Opsional, tapi penting agar saham tidak ilikuid)
                 c_vol = bool(df["Volume_OK"].iloc[j])
 
-                if c_kernel_flip and c_vol:
-                    # Ambil prediksi ML sebagai tambahan informasi di kolom
+                # 1. Masuk ke tabel Bullish
+                if bool(df['Kernel_Red_to_Green'].iloc[j]) and c_vol:
                     ml_score = self.is_lorentzian_bullish(df, j, neighbors=8)
-                    
                     res = self._package_result(t, df, j)
-                    
-                    # Ubah label Pattern untuk menegaskan alasan masuk tabel ini
-                    res["Pattern_Label"] = f"🟢 KERNEL FLIP (ML Score: {ml_score})"
-                    
-                    results.append(res)
-                    break # Lanjut ke ticker berikutnya agar tidak dobel
-        return self._finalize_and_sort(results)
+                    res["Pattern_Label"] = f"🟢 Bull (ML: {ml_score})" # Lebih singkat
+                    res_bull.append(res)
+                    break 
+                
+                # 2. Masuk ke tabel Bearish
+                elif bool(df['Kernel_Green_to_Red'].iloc[j]) and c_vol:
+                    ml_score = self.is_lorentzian_bullish(df, j, neighbors=8)
+                    res = self._package_result(t, df, j)
+                    res["Pattern_Label"] = f"🔴 Bear (ML: {ml_score})" # Lebih singkat
+                    res_bear.append(res)
+                    break
 
+        return self._finalize_and_sort(res_bull), self._finalize_and_sort(res_bear)
+    
 def add_fundamentals(df):
     if df is None or df.empty: return df
     print(f"⏳ Mengambil fundamental untuk {len(df)} saham (menggunakan jeda waktu anti-blokir)...")
@@ -496,7 +495,9 @@ if __name__ == "__main__":
     screener = ScreenerEngine(data_storage)
 
     # JALANKAN SCREENER MACHINE LEARNING
-    res_lorentzian = add_fundamentals(screener.run_lorentzian_ml_screener())
+    res_lor_bull, res_lor_bear = screener.run_lorentzian_ml_screener()
+    res_lor_bull = add_fundamentals(res_lor_bull)
+    res_lor_bear = add_fundamentals(res_lor_bear)
 
     res_super = add_fundamentals(screener.run_super_screener())
     res_aroon_ut = add_fundamentals(screener.run_aroon_ut_screener())
@@ -518,11 +519,12 @@ if __name__ == "__main__":
 
     export_data = {
         "last_update": timestamp_str,
-        "lorentzian_ml": res_lorentzian.to_dict(orient="records") if not res_lorentzian.empty else [],
         "super_screener": res_super.to_dict(orient="records") if not res_super.empty else [],
         "aroon_ut": res_aroon_ut.to_dict(orient="records") if not res_aroon_ut.empty else [],
         "ko_ut_vol": res_ko_ut.to_dict(orient="records") if not res_ko_ut.empty else [],
-        "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else []
+        "aroon_psar": res_aroon_psar.to_dict(orient="records") if not res_aroon_psar.empty else [],
+        "lorentzian_bull": res_lor_bull.to_dict(orient="records") if not res_lor_bull.empty else [],
+        "lorentzian_bear": res_lor_bear.to_dict(orient="records") if not res_lor_bear.empty else []
     }
 
     with open(f'docs/data_{today_str}.json', 'w') as f: json.dump(export_data, f, default=str)
