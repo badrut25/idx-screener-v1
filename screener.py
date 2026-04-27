@@ -100,7 +100,7 @@ class Config:
     REQUIRE_KO_POSITIVE = False
     REQUIRE_HIST_RISING = False
     USE_VOLUME_FILTER = True
-    VOL_MA, VOL_MULT, MIN_VOL = 500_000, 1.5, 500_000
+    VOL_MA, VOL_MULT, MIN_VOL = 20, 1.5, 500_000
     PSAR_START, PSAR_INC, PSAR_MAX = 0.02, 0.02, 0.2
 
 # ==============================================================================
