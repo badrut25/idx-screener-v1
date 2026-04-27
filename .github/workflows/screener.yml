@@ -2,8 +2,8 @@ name: Update Stock Data
 
 on:
   schedule:
-    # Jalan otomatis setiap hari Senin - Jumat jam 10:00 UTC (17:00 WIB)
-    - cron: '0 10 * * 1-5'
+    # Jalan otomatis setiap hari Senin - Jumat jam 11:00 UTC (18:00 WIB)
+    - cron: '0 11 * * 1-5'
   workflow_dispatch: # Tombol manual untuk testing
 
 jobs:
