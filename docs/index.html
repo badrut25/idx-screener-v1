@@ -305,23 +305,49 @@
             fetch(filename)
             .then(res => res.json())
             .then(data => {
+                // 1. Update Waktu di teks kecil tetap seperti biasa
                 document.getElementById('last_update').innerText = data.last_update;
+        
+                // 2. Update JUDUL UTAMA (Tanggal di depan)
+                // Kita ambil tanggalnya saja (YYYY-MM-DD)
+                const fullDate = data.last_update.split(' ')[0]; 
                 
-                // Render tabel-tabel utama
+                // Sekarang kita balik: fullDate dulu, baru judulnya
+                document.getElementById('main-title').innerText = `${fullDate} - 🚀 Dashboard Screener IDX`;
+        
+                // 3. Render tabel-tabel
                 renderTable(data.super_screener, 'superTable');
                 renderTable(data.aroon_ut, 'aroonUtTable');
                 renderTable(data.ko_ut_vol, 'koUtVolTable');
                 renderTable(data.aroon_psar, 'aroonPsarTable', true);
-                
-                // Render 2 tabel Lorentzian di bawah
                 renderTable(data.lorentzian_bull, 'lorentzianBullTable');
                 renderTable(data.lorentzian_bear, 'lorentzianBearTable');
             })
             .catch(err => {
                 console.error("Gagal memuat data JSON:", err);
-                alert("Data JSON belum tersedia atau terjadi kesalahan saat memuat.");
             });
         }
+        // function loadScreenerData(filename) {
+        //     fetch(filename)
+        //     .then(res => res.json())
+        //     .then(data => {
+        //         document.getElementById('last_update').innerText = data.last_update;
+                
+        //         // Render tabel-tabel utama
+        //         renderTable(data.super_screener, 'superTable');
+        //         renderTable(data.aroon_ut, 'aroonUtTable');
+        //         renderTable(data.ko_ut_vol, 'koUtVolTable');
+        //         renderTable(data.aroon_psar, 'aroonPsarTable', true);
+                
+        //         // Render 2 tabel Lorentzian di bawah
+        //         renderTable(data.lorentzian_bull, 'lorentzianBullTable');
+        //         renderTable(data.lorentzian_bear, 'lorentzianBearTable');
+        //     })
+        //     .catch(err => {
+        //         console.error("Gagal memuat data JSON:", err);
+        //         alert("Data JSON belum tersedia atau terjadi kesalahan saat memuat.");
+        //     });
+        // }
 
         // Login saat tekan enter
         document.getElementById("password").addEventListener("keypress", function(event) {
