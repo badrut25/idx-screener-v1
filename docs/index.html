@@ -357,6 +357,72 @@
                 checkLogin();
             }
         });
+
+        // =========================================================
+        // FITUR SORTING TABEL (KLIK HEADER UNTUK MENGURUTKAN)
+        // =========================================================
+
+        function sortTable(thElement) {
+            const table = thElement.closest('table');
+            const tbody = table.querySelector('tbody');
+            const colIndex = Array.from(thElement.parentNode.children).indexOf(thElement);
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // Cek arah sorting saat ini (Ascending atau Descending)
+            const isAsc = thElement.classList.contains('sort-asc');
+            
+            // Reset ikon panah (▲/▼) dan class di semua header pada tabel ini
+            table.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                th.innerHTML = th.innerHTML.replace(' ▲', '').replace(' ▼', '');
+            });
+            
+            // Tentukan arah baru dan tambahkan ikon panah
+            let direction = 1;
+            if (!isAsc) {
+                thElement.classList.add('sort-asc');
+                thElement.innerHTML += ' ▲';
+                direction = 1; // Kecil ke Besar / A ke Z
+            } else {
+                thElement.classList.add('sort-desc');
+                thElement.innerHTML += ' ▼';
+                direction = -1; // Besar ke Kecil / Z ke A
+            }
+            
+            // Lakukan pengurutan baris (Sorting)
+            rows.sort((a, b) => {
+                let aText = a.children[colIndex].innerText.trim();
+                let bText = b.children[colIndex].innerText.trim();
+                
+                // Bersihkan teks (Hapus karakter selain angka, minus, dan titik) untuk kolom nominal/persen
+                let aClean = aText.replace(/[^\d.-]/g, '');
+                let bClean = bText.replace(/[^\d.-]/g, '');
+                let aNum = parseFloat(aClean);
+                let bNum = parseFloat(bClean);
+                
+                // Jika kolom ini berisi angka (misal harga, volume, atau persen ubah)
+                if (!isNaN(aNum) && !isNaN(bNum) && aClean !== "" && bClean !== "") {
+                    return (aNum - bNum) * direction;
+                }
+                
+                // Jika kolom ini berisi huruf biasa (misal Ticker atau Pola)
+                return aText.localeCompare(bText) * direction;
+            });
+            
+            // Susun ulang baris di dalam tabel HTML
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Aktifkan fungsi klik pada SEMUA judul kolom (Header) secara otomatis
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('th').forEach(th => {
+                th.style.cursor = 'pointer'; // Ubah kursor jadi gambar tangan saat diarahkan
+                th.title = "Klik untuk mengurutkan"; // Munculkan teks bantuan
+                
+                // Tambahkan efek saat di-klik
+                th.addEventListener('click', () => sortTable(th));
+            });
+        });
     </script>
 </body>
 </html>
