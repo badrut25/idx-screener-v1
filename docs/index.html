@@ -305,17 +305,19 @@
             fetch(filename)
             .then(res => res.json())
             .then(data => {
-                // 1. Update Waktu di teks kecil tetap seperti biasa
+                // 1. Update Waktu di teks kecil
                 document.getElementById('last_update').innerText = data.last_update;
         
-                // 2. Update JUDUL UTAMA (Tanggal di depan)
-                // Kita ambil tanggalnya saja (YYYY-MM-DD)
+                // Ambil tanggalnya saja (YYYY-MM-DD)
                 const fullDate = data.last_update.split(' ')[0]; 
                 
-                // Sekarang kita balik: fullDate dulu, baru judulnya
+                // 2. UPDATE JUDUL TAB BROWSER 💡 (Ini yang Anda maksud!)
+                document.title = `${fullDate} - Screener IDX`;
+        
+                // 3. Update Judul Utama Halaman (H1)
                 document.getElementById('main-title').innerText = `${fullDate} - 🚀 Dashboard Screener IDX`;
         
-                // 3. Render tabel-tabel
+                // 4. Render tabel-tabel
                 renderTable(data.super_screener, 'superTable');
                 renderTable(data.aroon_ut, 'aroonUtTable');
                 renderTable(data.ko_ut_vol, 'koUtVolTable');
