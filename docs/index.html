@@ -379,10 +379,10 @@
             let num = parseFloat(numMatch[0]);
             
             // Kalikan dengan bobot satuannya
-            if (cleanStr.includes('T') || cleanStr.includes('TRILIUN')) num *= 1000000000000;
-            else if (cleanStr.includes('B') || cleanStr.includes('MILIAR') || cleanStr.includes('MILYAR')) num *= 1000000000;
-            else if (cleanStr.includes('M') || cleanStr.includes('JUTA')) num *= 1000000;
-            else if (cleanStr.includes('K') || cleanStr.includes('RIBU')) num *= 1000;
+            if (cleanStr.includes('T') || cleanStr.includes('Triliun')) num *= 1000000000000;
+            else if (cleanStr.includes('B') || cleanStr.includes('Miliar') || cleanStr.includes('Milyar')) num *= 1000000000;
+            else if (cleanStr.includes('M') || cleanStr.includes('Juta')) num *= 1000000;
+            else if (cleanStr.includes('K') || cleanStr.includes('Ribu')) num *= 1000;
             
             return num;
         }
