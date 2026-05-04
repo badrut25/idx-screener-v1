@@ -359,93 +359,86 @@
         });
 
         // =========================================================
-        // FITUR SORTING TABEL (KLIK HEADER UNTUK MENGURUTKAN)
+        // FITUR SORTING TABEL (AMAN UNTUK PYTHON F-STRING)
         // =========================================================
-
-        // =========================================================
-        // FITUR SORTING TABEL (KLIK HEADER UNTUK MENGURUTKAN)
-        // =========================================================
-
-        // Fungsi baru agar JavaScript paham nilai satuan (Juta, Miliar, dll)
-        function parseValue(str) {
+        function parseValue(str) {{
             if (!str) return NaN;
-            // Ubah ke huruf besar semua dan hapus koma ribuan agar bersih
-            let cleanStr = str.toUpperCase().replace(/,/g, '');
+            let cleanStr = str.toUpperCase().trim();
             
-            // Ambil angka utamanya saja (mendukung desimal dan minus)
-            let numMatch = cleanStr.match(/[-+]?[0-9]*\.?[0-9]+/);
+            let multiplier = 1;
+            if (cleanStr.includes('T') || cleanStr.includes('TRILIUN')) {{
+                multiplier = 1000000000000;
+            }} else if (cleanStr.includes('MILYAR') || cleanStr.includes('MILIAR') || cleanStr.includes('B')) {{
+                multiplier = 1000000000;
+            }} else if (cleanStr.endsWith('M') || cleanStr.includes(' M')) {{
+                multiplier = 1000000000;
+            }} else if (cleanStr.includes('JUTA') || cleanStr.includes('JT')) {{
+                multiplier = 1000000;
+            }} else if (cleanStr.includes('K') || cleanStr.includes('RIBU')) {{
+                multiplier = 1000;
+            }}
+            
+            let numMatch = cleanStr.match(/[-+]?[0-9][0-9.,]*/);
             if (!numMatch) return NaN;
+            let numStr = numMatch[0];
             
-            let num = parseFloat(numMatch[0]);
+            if (multiplier > 1) {{
+                numStr = numStr.replace(',', '.');
+            }} else {{
+                numStr = numStr.replace(/,/g, '');
+            }}
             
-            // Kalikan dengan bobot satuannya
-            if (cleanStr.includes('T') || cleanStr.includes('Triliun')) num *= 1000000000000;
-            else if (cleanStr.includes('B') || cleanStr.includes('Milyar') || cleanStr.includes('Miliar')) num *= 1000000000;
-            else if (cleanStr.includes('M') || cleanStr.includes('Juta')) num *= 1000000;
-            else if (cleanStr.includes('K') || cleanStr.includes('Ribu')) num *= 1000;
-            
-            return num;
-        }
+            return parseFloat(numStr) * multiplier;
+        }}
 
-        function sortTable(thElement) {
+        function sortTable(thElement) {{
             const table = thElement.closest('table');
             const tbody = table.querySelector('tbody');
             const colIndex = Array.from(thElement.parentNode.children).indexOf(thElement);
             const rows = Array.from(tbody.querySelectorAll('tr'));
             
-            // Cek arah sorting saat ini (Ascending atau Descending)
             const isAsc = thElement.classList.contains('sort-asc');
             
-            // Reset ikon panah (▲/▼) dan class di semua header pada tabel ini
-            table.querySelectorAll('th').forEach(th => {
+            table.querySelectorAll('th').forEach(th => {{
                 th.classList.remove('sort-asc', 'sort-desc');
                 th.innerHTML = th.innerHTML.replace(' ▲', '').replace(' ▼', '');
-            });
+            }});
             
-            // Tentukan arah baru dan tambahkan ikon panah
             let direction = 1;
-            if (!isAsc) {
+            if (!isAsc) {{
                 thElement.classList.add('sort-asc');
                 thElement.innerHTML += ' ▲';
-                direction = 1; // Kecil ke Besar / A ke Z
-            } else {
+                direction = 1; 
+            }} else {{
                 thElement.classList.add('sort-desc');
                 thElement.innerHTML += ' ▼';
-                direction = -1; // Besar ke Kecil / Z ke A
-            }
+                direction = -1; 
+            }}
             
-            // Lakukan pengurutan baris (Sorting)
-            rows.sort((a, b) => {
+            rows.sort((a, b) => {{
                 let aText = a.children[colIndex].innerText.trim();
                 let bText = b.children[colIndex].innerText.trim();
                 
-                // Gunakan fungsi parseValue pintar yang baru dibuat
                 let aNum = parseValue(aText);
                 let bNum = parseValue(bText);
                 
-                // Jika kolom ini berisi angka atau satuan (misal harga, volume, atau persen ubah)
-                if (!isNaN(aNum) && !isNaN(bNum)) {
+                if (!isNaN(aNum) && !isNaN(bNum)) {{
                     return (aNum - bNum) * direction;
-                }
+                }}
                 
-                // Jika kolom ini murni berisi huruf biasa (misal Ticker atau Pola)
                 return aText.localeCompare(bText) * direction;
-            });
+            }});
             
-            // Susun ulang baris di dalam tabel HTML
             rows.forEach(row => tbody.appendChild(row));
-        }
+        }}
 
-        // Aktifkan fungsi klik pada SEMUA judul kolom (Header) secara otomatis
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('th').forEach(th => {
-                th.style.cursor = 'pointer'; // Ubah kursor jadi gambar tangan
-                th.title = "Klik untuk mengurutkan"; // Munculkan teks bantuan
-                
-                // Tambahkan efek saat di-klik
+        document.addEventListener('DOMContentLoaded', () => {{
+            document.querySelectorAll('th').forEach(th => {{
+                th.style.cursor = 'pointer';
+                th.title = "Klik untuk mengurutkan";
                 th.addEventListener('click', () => sortTable(th));
-            });
-        });
+            }});
+        }});
         
         // function sortTable(thElement) {
         //     const table = thElement.closest('table');
