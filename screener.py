@@ -84,7 +84,7 @@ class Config:
         "SOLA", "BATR", "SPRE", "PART", "GOLF", "ISEA", "BLES", "GUNA", "LABS", "DOSS", "NEST", "PTMR", "VERN", "DAAZ",
         "BOAT", "NAIK", "AADI", "MDIY", "KSIX", "RATU", "YOII", "HGII", "BRRC", "DGWG", "CBDK", "OBAT", "MINE", "KAQI",
         "YUPI", "FORE", "MDLA", "DKHH", "PSAT", "CDIA", "COIN", "BLOG", "CHEK", "MERI", "ASPR", "PMUI", "EMAS", "PJHB",
-        "RLCO", "SUPA"
+        "RLCO", "SUPA", "WBSA", "JELI", "JECX", "BACH", "EMMI", "PRDL", "RANS"
     ]
     MARKET_SUFFIX = ".JK"
     LOOKBACK_DAYS_HISTORY = 400
